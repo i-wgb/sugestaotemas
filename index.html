@@ -339,11 +339,15 @@ function detectPlataforma(html,url){
   return {id:top.p.id,nome:top.p.nome,ehTray:top.p.id==='tray',confianca:top.peso>=2?'alta':'indício'};
 }
 
+/* reconhecedor de cálculo de frete — cobre home e, principalmente, a página de produto
+   (na Tray o cálculo por CEP fica no produto). Inclui o campo de CEP como sinal forte. */
+const FRETE_RX=/calcul\w*\s*(o\s*)?(frete|prazo)|simul\w*\s*(o\s*)?frete|calcule\s*o\s*frete|consultar\s*(frete|prazo)|frete\s*e\s*prazo|prazo\s*e\s*frete|meios?\s*de\s*(envio|entrega)|(digite|informe|seu|calcule)\s*(o\s*)?cep|calcularfrete|calcular-frete|frete-e-prazo|shipping[-_]?calc|name=["']cep["']|id=["']cep["']|data-cep|placeholder=["'][^"']*cep/i;
+
 /* 2.2 recursos essenciais de e-commerce — o que uma loja precisa exibir */
 const RECURSOS_BASE=[
  {n:'Pix como meio de pagamento',rx:/\bpix\b/i,foco:'conversao',porque:'Pix já responde por boa parte das vendas online e cai na conta na hora.'},
  {n:'Parcelamento visível na vitrine',rx:/\d{1,2}\s*x\s*(de\s*)?r\$|sem juros|parcel/i,foco:'conversao',porque:'Mostrar a parcela na vitrine aumenta a chance de o cliente considerar o produto.'},
- {n:'Cálculo de frete antes do carrinho',rx:/calcular frete|simular frete|calcule o frete|consultar frete|informe seu cep/i,foco:'conversao',porque:'Frete escondido até o fim é o principal motivo de abandono de carrinho no Brasil.'},
+ {n:'Cálculo de frete antes do carrinho',rx:FRETE_RX,foco:'conversao',porque:'Frete escondido até o fim é o principal motivo de abandono de carrinho no Brasil.'},
  {n:'Frete grátis com regra clara',rx:/frete gr[áa]tis/i,foco:'conversao',porque:'Regra de frete grátis por valor puxa o ticket médio para cima.'},
  {n:'Cupom de desconto',rx:/cupom|c[óo]digo de desconto/i,foco:'conversao',porque:'Cupom destrava a primeira compra e reativa cliente parado.'},
  {n:'Avaliações de clientes no produto',rx:/avalia[çc][ãa]o|avalia[çc][õo]es|trustvox|yourviews|review|opini[õa]o de quem comprou|estrelas/i,foco:'confianca',porque:'Prova social decide a compra de quem não conhece a marca.'},
@@ -358,7 +362,7 @@ const RECURSOS_BASE=[
 /* 2.3 sinais rastreados no código da loja */
 const SINAIS={
  pagamento:[['Visa',/\bvisa\b/i],['Mastercard',/mastercard|master card/i],['Elo',/\belo\b/i],['American Express',/amex|american express/i],['Hipercard',/hipercard/i],['Pix',/\bpix\b/i],['Boleto',/boleto/i],['PayPal',/paypal/i],['Mercado Pago',/mercado ?pago/i],['PagSeguro / PagBank',/pagseguro|pagbank/i],['PicPay',/picpay/i]],
- frete:[['Cálculo de frete por CEP',/calcular frete|simular frete|informe seu cep|consultar frete/i],['Frete grátis',/frete gr[áa]tis/i],['Correios',/correios|sedex|pac\b/i],['Transportadora',/jadlog|loggi|total express|azul cargo|braspress/i],['Prazo de entrega visível',/prazo de entrega|receba at[ée]|entrega em \d|em at[ée] \d+ dias/i],['Retirada na loja',/retirar na loja|retirada na loja|retire na loja/i]],
+ frete:[['Cálculo de frete por CEP',FRETE_RX],['Frete grátis',/frete gr[áa]tis/i],['Correios',/correios|sedex|pac\b/i],['Transportadora',/jadlog|loggi|total express|azul cargo|braspress/i],['Prazo de entrega visível',/prazo de entrega|receba at[ée]|entrega em \d|em at[ée] \d+ dias/i],['Retirada na loja',/retirar na loja|retirada na loja|retire na loja/i]],
  prova:[['Avaliações de produto',/trustvox|yourviews|avalia[çc][õo]es|review|estrelas/i],['Depoimentos',/depoiment|o que dizem|clientes satisfeit/i],['Selo de segurança',/site blindado|selo|ssl|seguran[çc]a|google safe/i],['Reclame Aqui',/reclame ?aqui/i],['CNPJ no rodapé',/cnpj/i],['Política de troca e devolução',/troca e devolu|pol[íi]tica de troca|devolu[çc][ãa]o/i]],
  atendimento:[['WhatsApp',/wa\.me|api\.whatsapp|whatsapp/i],['Chat online',/jivochat|tawk\.to|zendesk|crisp\.chat|octadesk|movidesk|olark|intercom|zenvia/i],['Telefone / SAC visível',/\(\d{2}\)\s?\d{4,5}-?\d{4}|0800/i]],
  canais:[['Instagram',/instagram\.com/i],['Facebook',/facebook\.com/i],['TikTok',/tiktok\.com/i],['YouTube',/youtube\.com|youtu\.be/i],['Mercado Livre',/mercadolivre|mercadolibre/i],['Shopee',/shopee\.com/i],['Amazon',/amazon\.com\.br/i]],
@@ -609,12 +613,13 @@ async function fetchText(url,timeout=20000){
   throw lastErr||new Error('falha na leitura');
 }
 async function sondar(origin){
-  const out={robots:false,sitemap:false,urls:0,produtos:0,categorias:0,blog:false,sitemapsLidos:0,parcial:false};
+  const out={robots:false,sitemap:false,urls:0,produtos:0,categorias:0,blog:false,sitemapsLidos:0,parcial:false,produtoUrl:''};
   if(!origin) return out;
   const ehProduto=l=>/\/(produto|produtos|product|products)\//i.test(l)||/\/p\/[^/]+/i.test(l);
   const ehCategoria=l=>/\/(categoria|categorias|category|categories|collections?|departamento|linha|colecao|cole[çc][ãa]o|marca|marcas)\//i.test(l);
   const contar=(xml)=>{ const locs=[...(xml||'').matchAll(/<loc>\s*([^<]+?)\s*<\/loc>/gi)].map(m=>m[1]);
     out.urls+=locs.length; out.produtos+=locs.filter(ehProduto).length; out.categorias+=locs.filter(ehCategoria).length;
+    if(!out.produtoUrl){ const p=locs.find(ehProduto); if(p) out.produtoUrl=p; }
     if(locs.some(l=>/\/blog|\/noticias|\/dicas/i.test(l))) out.blog=true; };
   let sitemapUrl=origin+'/sitemap.xml';
   try{ const rb=await fetchText(origin+'/robots.txt',9000); if(rb&&/user-agent/i.test(rb)){ out.robots=true; const m=rb.match(/sitemap:\s*(\S+)/i); if(m) sitemapUrl=m[1].trim(); } }catch(e){}
@@ -628,6 +633,14 @@ async function sondar(origin){
 }
 
 /* ---------- 4. análise da loja ---------- */
+function resolveUrl(href,origin){ href=(href||'').trim(); if(!href||/^(#|javascript:|mailto:|tel:)/i.test(href)) return ''; if(/^https?:\/\//i.test(href)) return href; if(href.startsWith('//')) return 'https:'+href; return origin.replace(/\/$/,'')+(href.startsWith('/')?href:'/'+href); }
+function acharLinkProduto(html,origin){
+  try{ const dom=new DOMParser().parseFromString(html,'text/html');
+    const hrefs=[...dom.querySelectorAll('a[href]')].map(a=>a.getAttribute('href')||'');
+    const h=hrefs.find(x=>/\/(produto|product)\//i.test(x)) || hrefs.find(x=>/\/p\/[^/]+/i.test(x)) || hrefs.find(x=>/\/[a-z0-9-]+-p\d+/i.test(x));
+    return h?resolveUrl(h,origin):'';
+  }catch(e){ const m=html.match(/href=["']([^"']*\/(?:produto|product)\/[^"']+)["']/i); return m?resolveUrl(m[1],origin):''; }
+}
 function _ldWalk(node,out){ if(!node||typeof node!=='object') return; if(Array.isArray(node)){ node.forEach(n=>_ldWalk(n,out)); return; }
   const grab=v=>{ if(v==null) return; const n=parseFloat(String(v).replace(/[^\d.,]/g,'').replace(/\.(?=\d{3}\b)/g,'').replace(',','.')); if(n>=1&&n<=500000) out.push(n); };
   if(node.price!=null) grab(node.price); if(node.lowPrice!=null) grab(node.lowPrice); if(node.highPrice!=null) grab(node.highPrice);
@@ -655,21 +668,25 @@ function analisarLoja(html,url,extras){
   const nomeLoja=(meta('og:site_name')||titulo.split(/[|\-–—]/)[0]||hostOf(url)).trim().slice(0,60);
   const L={url,host:hostOf(url),origin:originOf(url),nomeLoja,titulo,extras:extras||{}};
   L.plataforma=detectPlataforma(html,url);
+  /* home + página de produto lida (o cálculo de frete, avaliações e "compre junto" vivem no produto) */
+  const htmlP=(extras&&extras.produtoHtml)||'';
+  const htmlAll=html+'\n'+htmlP;
+  L.leuProduto=!!htmlP;
 
   /* estrutura e experiência de compra */
   const links=[...dom.querySelectorAll('a[href]')];
   const navLinks=[...dom.querySelectorAll('nav a[href], header a[href], [class*="menu"] a[href]')];
   L.exp={
-    busca:/type=["']search|name=["']q["']|name=["'](busca|search|palavra)|placeholder=["'][^"']*(buscar|pesquis)/i.test(html),
-    filtros:/filtro|filtrar|refine|facet|ordenar por/i.test(html),
-    menuMobile:/menu-mobile|mobile-menu|hamburger|navbar-toggle|menu-hamb|drawer/i.test(html),
-    submenu:/submenu|sub-menu|dropdown|megamenu|mega-menu/i.test(html),
-    carrinhoLateral:/carrinho-lateral|side-?cart|mini-?cart|cart-drawer/i.test(html),
-    contaCliente:/minha conta|meus pedidos|entrar\b|login/i.test(html),
+    busca:/type=["']search|name=["']q["']|name=["'](busca|search|palavra)|placeholder=["'][^"']*(buscar|pesquis)/i.test(htmlAll),
+    filtros:/filtro|filtrar|refine|facet|ordenar por/i.test(htmlAll),
+    menuMobile:/menu-mobile|mobile-menu|hamburger|navbar-toggle|menu-hamb|drawer/i.test(htmlAll),
+    submenu:/submenu|sub-menu|dropdown|megamenu|mega-menu/i.test(htmlAll),
+    carrinhoLateral:/carrinho-lateral|side-?cart|mini-?cart|cart-drawer/i.test(htmlAll),
+    contaCliente:/minha conta|meus pedidos|entrar\b|login/i.test(htmlAll),
     itensMenu:[...new Set(navLinks.map(a=>(a.textContent||'').replace(/\s+/g,' ').trim()).filter(t=>t.length>2&&t.length<28))].slice(0,12),
-    pagamentos:acharSinais(html,'pagamento'),
-    frete:acharSinais(html,'frete'),
-    checkoutExterno:(html.match(/(mercadopago|pagseguro|yampi|cartpanda|kirvano|hotmart|checkout\.[a-z0-9-]+\.com)/i)||[])[1]||''
+    pagamentos:acharSinais(htmlAll,'pagamento'),
+    frete:acharSinais(htmlAll,'frete'),
+    checkoutExterno:(htmlAll.match(/(mercadopago|pagseguro|yampi|cartpanda|kirvano|hotmart|checkout\.[a-z0-9-]+\.com)/i)||[])[1]||''
   };
   /* performance e técnico */
   const scripts=(html.match(/<script\b/gi)||[]).length;
@@ -687,10 +704,10 @@ function analisarLoja(html,url,extras){
     produtosEstimados:(extras&&extras.produtos)||0, categoriasEstimadas:(extras&&extras.categorias)||0 };
   if(!L.seo.produtosEstimados){ const blocos=(html.match(/class="[^"]*(product|produto)[^"]*"/gi)||[]).length; const linksProd=links.filter(a=>/\/(produto|product|p)\//i.test(a.getAttribute('href')||'')).length; L.seo.produtosEstimados=Math.max(linksProd,Math.round(blocos/4)); L.seo.produtosFonte='home'; } else L.seo.produtosFonte='sitemap';
   /* marketing e confiança */
-  L.mkt={analytics:acharSinais(html,'analytics'),atendimento:acharSinais(html,'atendimento'),prova:acharSinais(html,'prova'),canais:acharSinais(html,'canais')};
-  /* sinais de conversão e confiança consolidados */
+  L.mkt={analytics:acharSinais(html,'analytics'),atendimento:acharSinais(htmlAll,'atendimento'),prova:acharSinais(htmlAll,'prova'),canais:acharSinais(htmlAll,'canais')};
+  /* sinais de conversão e confiança consolidados (home + produto) */
   const some=(arr,rx)=>arr.filter(x=>rx.test(x.nome)&&x.ok).length>0;
-  L.convSig={ pix:some(L.exp.pagamentos,/Pix/), parcel:/\d{1,2}\s*x\s*(de\s*)?r\$|sem juros|parcel/i.test(html), freteCalc:some(L.exp.frete,/C[áa]lculo de frete/), freteGratis:some(L.exp.frete,/Frete gr[áa]tis/), prazo:some(L.exp.frete,/Prazo/), cupom:/cupom|c[óo]digo de desconto/i.test(html), checkoutInterno:!L.exp.checkoutExterno, relacionados:/relacionados|quem viu|voc[êe] tamb[ée]m|compre junto|leve junto|complete o look/i.test(html), urgencia:/[úu]ltimas unidades|estoque baixo|acaba em|oferta por tempo|restam \d|em alta/i.test(html), destaques:/mais vendidos|destaques|best ?sellers|em alta|queridinhos/i.test(html) };
+  L.convSig={ pix:some(L.exp.pagamentos,/Pix/), parcel:/\d{1,2}\s*x\s*(de\s*)?r\$|sem juros|parcel/i.test(htmlAll), freteCalc:some(L.exp.frete,/C[áa]lculo de frete/), freteGratis:some(L.exp.frete,/Frete gr[áa]tis/), prazo:some(L.exp.frete,/Prazo/), cupom:/cupom|c[óo]digo de desconto/i.test(htmlAll), checkoutInterno:!L.exp.checkoutExterno, relacionados:/relacionados|quem viu|voc[êe] tamb[ée]m|compre junto|leve junto|complete o look/i.test(htmlAll), urgencia:/[úu]ltimas unidades|estoque baixo|acaba em|oferta por tempo|restam \d|em alta/i.test(htmlAll), destaques:/mais vendidos|destaques|best ?sellers|em alta|queridinhos/i.test(htmlAll) };
   L.trustSig={ avaliacoes:some(L.mkt.prova,/Avalia/), depoimentos:some(L.mkt.prova,/Depoiment/), selo:some(L.mkt.prova,/Selo/), reclameAqui:some(L.mkt.prova,/Reclame/), cnpj:some(L.mkt.prova,/CNPJ/), politicaTroca:some(L.mkt.prova,/troca/i), atendimento:L.mkt.atendimento.some(a=>a.ok), whatsapp:some(L.mkt.atendimento,/WhatsApp/) };
   /* perfil e segmento */
   const catsTxt=[...dom.querySelectorAll('nav a,header a,[class*="menu"] a,[class*="categor"] a,[class*="breadcrumb"] a')].map(a=>(a.textContent||'').replace(/\s+/g,' ').trim()).filter(t=>t.length>1&&t.length<40).join(' ');
@@ -812,41 +829,111 @@ function scoreTema(tema,needs,L){
   sc+= (hashStr(L.host+'|'+tema.n)%5)*0.25; // desempate estável, varia por loja
   return sc;
 }
-function recomendarTemas(L){
+/* lacunas da loja que um tema PODE cobrir — priorizando navegação e experiência */
+function lacunasLoja(L){
+  const p=L.perfil.produtos||0;
+  return {
+    busca: !L.exp.busca,
+    filtros: !L.exp.filtros && p>=60,
+    submenu: !L.exp.submenu,
+    avaliacoes: !L.trustSig.avaliacoes,
+    freteProduto: !L.convSig.freteCalc,
+    pix: !L.convSig.pix,
+    relacionados: !L.convSig.relacionados,
+    destaques: !L.convSig.destaques,
+    mobile: !L.tec.viewport || L.tec.velocidade==='lenta',
+    zoom: ['joias','moda','casa','beleza'].includes(L.perfil.segmento.id),
+    vitrines: (L.score.eixos.find(e=>e.nome==='Navegação e descoberta')||{}).valor<50
+  };
+}
+const CAP_ROTULO={busca:'busca com sugestão',filtros:'filtros por categoria e atributo',submenu:'menu com submenus',avaliacoes:'avaliações de clientes no produto',freteProduto:'cálculo de frete na página do produto',pix:'Pix em destaque',parcelamento:'parcelamento visível',relacionados:'blocos de compre junto / relacionados',destaques:'vitrines de mais vendidos',mobile:'layout mobile-first e leve',zoom:'zoom nas fotos do produto',vitrines:'vitrines e banners na home'};
+function capCobre(cap,g){ if(g==='mobile') return !!(cap.mobile); if(g==='vitrines') return !!(cap.vitrines||cap.destaques); return !!cap[g]; }
+
+/* analisa AO VIVO a demonstração do tema (home + uma página de produto da demo) */
+async function analisarTema(tema){
+  const cap={verificado:false,erro:'',busca:false,filtros:false,submenu:false,avaliacoes:false,freteProduto:false,pix:false,parcelamento:false,relacionados:false,destaques:false,vitrines:false,zoom:false,mobile:false,rapido:false,newsletter:false,redes:false};
+  try{
+    const home=await fetchText(tema.demo,13000);
+    let prod=''; const org=originOf(tema.demo)||tema.demo;
+    const purl=acharLinkProduto(home,org);
+    if(purl){ try{ prod=await fetchText(purl,11000); }catch(e){} }
+    const H=home+'\n'+prod;
+    cap.busca=/type=["']search|name=["']q["']|placeholder=["'][^"']*(buscar|pesquis)|autocomplete|typeahead/i.test(H);
+    cap.filtros=/filtro|filtrar|refine|facet|ordenar por/i.test(H);
+    cap.submenu=/submenu|sub-menu|dropdown|megamenu|mega-menu/i.test(H);
+    cap.avaliacoes=/trustvox|yourviews|avalia[çc][õo]es|review|estrelas|nota m[ée]dia|opini[õa]o de quem/i.test(H);
+    cap.freteProduto=FRETE_RX.test(H);
+    cap.pix=/\bpix\b/i.test(H);
+    cap.parcelamento=/\d{1,2}\s*x\s*(de\s*)?r\$|sem juros|parcel/i.test(H);
+    cap.relacionados=/relacionados|quem viu|voc[êe] tamb[ée]m|compre junto|leve junto|complete o look/i.test(H);
+    cap.destaques=/mais vendidos|destaques|best ?sellers|em alta|lan[çc]amentos|queridinhos/i.test(H);
+    cap.vitrines=/vitrine|carrossel|carousel|banner|showcase|slick|swiper/i.test(H);
+    cap.zoom=/zoom|magnif|lightbox|ampliar imagem|image-zoom/i.test(H);
+    cap.newsletter=/newsletter|cadastre.{0,8}e-?mail|receba.{0,12}novidades|assine.{0,10}novidades/i.test(H);
+    cap.redes=/instagram\.com|facebook\.com|tiktok\.com/i.test(H);
+    cap.mobile=/name=["']viewport["']/i.test(home);
+    const scripts=(home.match(/<script\b/gi)||[]).length, kb=Math.round(home.length/1024);
+    cap.rapido=kb<550&&scripts<32; if(cap.rapido) cap.mobile=cap.mobile||true;
+    cap.leuProduto=!!prod; cap.verificado=true;
+  }catch(e){ cap.erro=(e&&e.message)||'demo não carregou'; }
+  return cap;
+}
+
+async function recomendarTemas(L,onStep){
   const segKey=TEMA_MAP_SEG[L.perfil.segmento.id]||'geral';
   let pool=CATALOGO_TEMAS.filter(t=>t.seg===segKey);
   const complementar=CATALOGO_TEMAS.filter(t=>t.seg==='geral'&&t.seg!==segKey);
   if(pool.length<4) pool=pool.concat(complementar);
   const needs=calcNeeds(L);
-  const ranked=pool.map(t=>({t,sc:scoreTema(t,needs,L)})).sort((a,b)=>b.sc-a.sc);
-  // diversidade de faixa entre os 3
+  // 1) pré-seleção pelo perfil (segmento, porte, ticket) — reduz quantas demos abrimos
+  const ranked=pool.map(t=>({t,pre:scoreTema(t,needs,L)})).sort((a,b)=>b.pre-a.pre);
+  const shortlist=ranked.slice(0,Math.min(5,ranked.length));
+  // 2) abre e analisa a demonstração de cada candidato AO VIVO
+  if(onStep) onStep('Abrindo e analisando '+shortlist.length+' demonstrações de temas ao vivo…');
+  const caps=await Promise.all(shortlist.map(async r=>({r,cap:await analisarTema(r.t)})));
+  // 3) pontua pela cobertura REAL das lacunas da loja (o que a demo entrega de fato)
+  const lac=lacunasLoja(L); const gaps=Object.keys(lac).filter(k=>lac[k]);
+  const avaliados=caps.map(({r,cap})=>{
+    const cobertas=gaps.filter(g=>capCobre(cap,g));
+    const faltantesNaDemo=gaps.filter(g=>!capCobre(cap,g));
+    let sc;
+    if(cap.verificado){ sc = cobertas.length*7 + r.pre*0.5; }
+    else { sc = r.pre*0.5 - 1; } // sem confirmação ao vivo, cai atrás dos verificados
+    return {t:r.t, pre:r.pre, sc, cap, cobertas, faltantesNaDemo, verificado:cap.verificado};
+  }).sort((a,b)=>b.sc-a.sc || (b.verificado?1:0)-(a.verificado?1:0));
+  // 4) top-3 com diversidade de faixa de preço
   const escolhidos=[]; const faixas=new Set();
-  for(const r of ranked){ if(escolhidos.length>=3) break; const fx=faixaTema(r.t.preco);
+  for(const r of avaliados){ if(escolhidos.length>=3) break; const fx=faixaTema(r.t.preco);
     if(escolhidos.length<2 || !faixas.has(fx) || escolhidos.length===2){ escolhidos.push(r); faixas.add(fx); } }
-  if(escolhidos.length<3){ for(const r of ranked){ if(escolhidos.length>=3) break; if(!escolhidos.includes(r)) escolhidos.push(r); } }
-  const maxSc=(escolhidos[0]?escolhidos[0].sc:1)||1;
+  if(escolhidos.length<3){ for(const r of avaliados){ if(escolhidos.length>=3) break; if(!escolhidos.includes(r)) escolhidos.push(r); } }
+  const totalGaps=Math.max(1,gaps.length);
   return escolhidos.slice(0,3).map((r,i)=>{
-    const tema=r.t, match=pct(Math.max(63, Math.min(96, Math.round(69 + (r.sc/maxSc)*27 - i*0.6))));
-    return {tema, match, faixa:faixaTema(tema.preco), motivo:justificarTema(L,tema,needs), tagsRotulo:tema.tags.map(tg=>TAG_ROTULO[tg]).filter(Boolean).slice(0,4), top:i===0};
+    const tema=r.t;
+    const base = r.verificado ? Math.round(58 + (r.cobertas.length/totalGaps)*38) : Math.round(60 + (r.pre/ (avaliados[0].pre||1))*18);
+    const match=pct(Math.max(60, Math.min(97, base - i)));
+    const confirmados=r.cobertas.map(g=>CAP_ROTULO[g]).filter(Boolean);
+    const extrasDemo=['avaliacoes','freteProduto','filtros','busca','relacionados','zoom','destaques'].filter(k=>r.cap[k]&&!r.cobertas.includes(k)).map(k=>CAP_ROTULO[k]).filter(Boolean);
+    return {tema, match, faixa:faixaTema(tema.preco), verificado:r.verificado, cap:r.cap,
+      confirmados, extrasDemo:extrasDemo.slice(0,3), naoConfirma:r.faltantesNaDemo.map(g=>CAP_ROTULO[g]).filter(Boolean).slice(0,3),
+      motivo:justificarTema(L,tema,needs,r), tagsRotulo:tema.tags.map(tg=>TAG_ROTULO[tg]).filter(Boolean).slice(0,4), top:i===0};
   });
 }
-function justificarTema(L,tema,needs){
+function justificarTema(L,tema,needs,r){
   const loja=L.nomeLoja||'a loja', seg=L.perfil.segmento.nome.toLowerCase();
-  const p=L.perfil.produtos, parts=[];
-  // 1) por que combina com o segmento
+  const p=L.perfil.produtos, parts=[]; const fx=faixaTema(tema.preco);
   parts.push('Feito para '+seg+', o mesmo ramo da '+loja+'.');
-  // 2) casa com a maior lacuna que este tema resolve
-  const tagNeed=tema.tags.map(tg=>{ const k=Object.keys(NEED_TAG).find(kk=>NEED_TAG[kk]===tg); return {tg,nv:k?needs[k]:0}; }).sort((a,b)=>b.nv-a.nv);
-  const topTag=(tagNeed[0]||{}).tg;
-  if(topTag==='navegacao') parts.push('Como '+(p?'a loja tem cerca de '+p+' produtos':'o catálogo tende a crescer')+(L.exp.filtros?' ':' e não localizamos filtros')+', ele entra forte com busca e filtros que organizam a vitrine — navegação melhor pode elevar a conversão em até ~35%.');
-  else if(topTag==='conversao') parts.push('Ele é focado em conversão'+((!L.convSig.freteCalc)?', com frete e prazo à frente do cliente (47% abandonam ao ver o frete no fim)':'')+((!L.trustSig.avaliacoes)?' e espaço nativo para avaliações, que 64% checam antes de comprar':'')+'.');
-  else if(topTag==='premium') parts.push('Com ticket aparente '+(L.perfil.precos&&L.perfil.precos.ok?'de ~'+brl(L.perfil.precos.mediana):'mais alto')+', a vitrine precisa transmitir valor — a apresentação premium deste tema sustenta o preço.');
-  else if(topTag==='catalogo') parts.push('Para um catálogo grande'+(p?' (~'+p+' produtos)':'')+', a estrutura de magazine dele expõe muitas categorias e vitrines na home sem virar bagunça.');
-  else if(topTag==='clean') parts.push('O visual clean valoriza a marca e o produto — combina com uma operação enxuta e curada como a da '+loja+'.');
-  else if(topTag==='performance'||topTag==='mobile') parts.push('É um tema leve e mobile-first — 73% dos consumidores compram pelo celular, e a velocidade segura a visita que a lentidão faz sair.');
-  else parts.push('Traz uma base equilibrada de experiência de compra para o dia a dia da loja.');
-  // 3) encaixe de porte/orçamento + compra única
-  const fx=faixaTema(tema.preco);
+  if(r&&r.verificado){
+    const conf=(r.cobertas||[]).map(g=>CAP_ROTULO[g]).filter(Boolean);
+    if(conf.length){ parts.push('Na análise ao vivo da demonstração, confirmamos '+listPt(conf.slice(0,3))+' — justamente '+(conf.length>1?'os pontos que a loja não exibe hoje':'o ponto que a loja não exibe hoje')+'.'); }
+    else { const extras=['filtros','busca','avaliacoes','freteProduto','relacionados'].filter(k=>r.cap[k]).map(k=>CAP_ROTULO[k]).filter(Boolean); parts.push('A demonstração confirma uma base sólida de experiência'+(extras.length?' ('+listPt(extras.slice(0,3))+')':'')+', embora a loja já cubra a maioria das lacunas principais.'); }
+    // reforço específico por maior lacuna
+    if((r.cobertas||[]).includes('freteProduto')) parts.push('O frete e o prazo aparecem na própria página do produto — e 47% abandonam ao ver o frete só no fim.');
+    else if((r.cobertas||[]).includes('avaliacoes')) parts.push('Traz avaliações no produto, que 64% checam antes de comprar em loja que não conhecem.');
+    else if((r.cobertas||[]).includes('filtros')||(r.cobertas||[]).includes('busca')) parts.push('A navegação por busca e filtros encurta o caminho até o produto — navegação melhor pode elevar a conversão em até ~35%.');
+    if(r.naoConfirma&&r.naoConfirma.length) parts.push('Na demo não localizamos '+listPt(r.naoConfirma.slice(0,2))+'; vale confirmar esse ponto ao vivo com o lojista.');
+  } else {
+    parts.push('Não foi possível abrir a demonstração agora para confirmar os recursos ao vivo — pela ficha do tema ele traz '+listPt(tema.tags.map(t=>lower1(TAG_ROTULO[t]||t)).slice(0,3))+'. Antes de fechar, abra a demo e confirme busca, filtros, frete no produto e avaliações.');
+  }
   const enc= fx==='entrada'?'Cabe no orçamento de uma operação enxuta':(fx==='premium'?'É um investimento à altura de uma operação que quer se posicionar acima da média':'Tem um custo-benefício equilibrado para escalar');
   parts.push(enc+' — compra única, sem mensalidade sobre o tema'+(tema.dia?', e é de um parceiro Diamante da Tray':'')+'.');
   return parts.join(' ');
