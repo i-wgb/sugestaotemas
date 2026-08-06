@@ -171,6 +171,15 @@
   .theme .why b{color:var(--teal-deep)}
   .theme .tags{display:flex;flex-wrap:wrap;gap:6px}
   .theme .tg{font-size:11px;font-weight:600;padding:3px 9px;border-radius:999px;background:var(--surface-2);border:1px solid var(--line);color:var(--ink-2)}
+  .theme .ver{display:flex;align-items:center;gap:7px;font-size:11.5px;font-weight:600;padding:9px 20px;border-top:1px solid var(--line-2)}
+  .theme .ver.ok{color:var(--green);background:var(--green-soft)}
+  .theme .ver.no{color:#8A6A1E;background:var(--gold-soft)}
+  .theme .ver svg{flex:none}
+  .theme .conf{background:var(--surface-2);border:1px solid var(--line);border-radius:10px;padding:9px 11px}
+  .theme .conf .cl{font-size:11px;font-weight:700;letter-spacing:.02em;color:var(--muted);display:block;margin-bottom:6px}
+  .theme .conf .ctags{display:flex;flex-wrap:wrap;gap:5px}
+  .theme .conf .ct{font-size:11px;font-weight:600;padding:3px 8px;border-radius:999px}
+  .theme .conf .ct.yes{background:var(--teal-soft);color:var(--teal-deep);border:1px solid #BCE9E0}
   .theme .price{display:flex;align-items:baseline;justify-content:space-between;gap:10px;border-top:1px dashed var(--line);padding-top:12px}
   .theme .price .p{font-family:'Space Grotesk';font-size:19px;font-weight:600;color:var(--ink)}
   .theme .price .p small{font-family:'Inter';font-size:12px;font-weight:500;color:var(--muted);display:block}
@@ -234,7 +243,7 @@
 </div></header>
 <main class="wrap">
   <section class="hero">
-    <h1>Raio-X de experiência <span class="u">e o tema ideal para a loja</span></h1>
+    <h1>Raio-X <span class="u">+ Tema Ideal</span></h1>
     <p class="lead">Cole o endereço de uma loja que já roda na Tray. A ferramenta analisa a experiência de compra, usabilidade, navegação e conversão, aponta o que está bom e o que trava a venda com dados de mercado, e — a partir do segmento e do diagnóstico — recomenda 3 temas da Loja de Temas Tray com a justificativa de cada um e os argumentos para o atendimento.</p>
     <div class="note"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#B8912E" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><path d="M12 8h.01M11 12h1v4h1"/></svg><span>A leitura das páginas usa um relay público, porque o navegador não acessa outros sites diretamente. Se um link não carregar, clique em analisar de novo ou ative o modo de colar código-fonte. Tudo o que aparece aqui é lido da página pública no momento da análise; a demonstração do tema deve ser conferida ao vivo com o lojista antes de fechar.</span></div>
 
@@ -1011,7 +1020,7 @@ async function run(){
   const lojaPaste=document.getElementById('loja-paste').value.trim();
   if(!lojaUrl&&!lojaPaste){ alertEl.className='alert on'; alertEl.textContent='Informe o endereço da loja para começar a análise.'; return; }
   runBtn.disabled=true;
-  const lines=[{s:'load',t:'Lendo '+(shortUrl(lojaUrl)||'o conteúdo colado')+'…'},{s:'',t:'Sondando sitemap e catálogo'},{s:'',t:'Analisando experiência e conversão'},{s:'',t:'Selecionando os temas ideais'}];
+  const lines=[{s:'load',t:'Lendo '+(shortUrl(lojaUrl)||'o conteúdo colado')+'…'},{s:'',t:'Sondando sitemap e lendo uma página de produto'},{s:'',t:'Analisando experiência e conversão'},{s:'',t:'Analisando as demonstrações dos temas ao vivo'}];
   setStatus(lines);
   let loja=null;
   try{
@@ -1020,25 +1029,31 @@ async function run(){
     let extras={};
     if(deepToggle.checked&&lojaUrl){ lines[1]={s:'load',t:'Sondando sitemap e catálogo…'}; setStatus(lines);
       extras=await sondar(originOf(lojaUrl));
-      lines[1]={s:extras.sitemap||extras.robots?'ok':'err',t:extras.sitemap?('Catálogo lido: '+extras.produtos+' produtos, '+extras.categorias+' categorias'):(extras.robots?'robots.txt lido, sitemap não acessível':'Sitemap não lido — seguindo só com a home')};
     } else lines[1]={s:'',t:'Sondagem de sitemap desativada'};
+    // lê uma página de produto (o cálculo de frete, avaliações e "compre junto" vivem no produto)
+    if(lojaUrl){ let purl=extras.produtoUrl||acharLinkProduto(html,originOf(lojaUrl));
+      if(purl){ lines[1]={s:'load',t:'Lendo uma página de produto para checar frete e avaliações…'}; setStatus(lines);
+        try{ extras.produtoHtml=await fetchText(purl,13000); }catch(e){} } }
+    lines[1]={s:extras.produtoHtml?'ok':(extras.sitemap||extras.robots?'ok':'err'),t:(extras.sitemap?'Catálogo: '+extras.produtos+' produtos, '+extras.categorias+' categorias':'Sitemap não lido')+(extras.produtoHtml?' · página de produto lida ✓':' · produto não lido (só a home)')};
     setStatus(lines);
     lines[2]={s:'load',t:'Analisando experiência e conversão…'}; setStatus(lines);
     loja=analisarLoja(html,lojaUrl||('https://'+(hostOf(lojaUrl)||'loja')),extras);
-    lines[2]={s:'ok',t:'Diagnóstico montado: maturidade '+loja.score.total+'/100'}; setStatus(lines);
+    lines[2]={s:'ok',t:'Diagnóstico montado: maturidade '+loja.score.total+'/100'+(loja.leuProduto?' (home + produto)':' (só home)')}; setStatus(lines);
   }catch(err){
     lines[0]={s:'err',t:'Não consegui ler a loja. Tente de novo ou use o modo de colar conteúdo.'}; setStatus(lines);
     alertEl.className='alert on'; alertEl.textContent='Não consegui ler a loja pelo relay público. Clique em analisar de novo, ou ative "Colar conteúdo manualmente" e cole o código-fonte da página inicial.';
     runBtn.disabled=false; return;
   }
-  lines[3]={s:'load',t:'Selecionando os temas ideais…'}; setStatus(lines);
+  lines[3]={s:'load',t:'Analisando as demonstrações dos temas ao vivo…'}; setStatus(lines);
   try{
     const fortes=montarFortes(loja), fracos=montarFracos(loja), faltantes=montarFaltantes(loja);
-    const melhorias=montarMelhorias(loja,fracos), temas=recomendarTemas(loja);
+    const melhorias=montarMelhorias(loja,fracos);
+    const temas=await recomendarTemas(loja,(msg)=>{ lines[3]={s:'load',t:msg}; setStatus(lines); });
     const args=montarArgumentos(loja,temas,fracos), guia=montarGuia(loja,temas,fracos);
     state={loja,fortes,fracos,faltantes,melhorias,temas,args,guia,concl:''};
-    lines[3]={s:'ok',t:'Temas recomendados: '+temas.map(t=>t.tema.n).join(' · ')}; setStatus(lines);
-    setTimeout(()=>{ statusEl.className='status'; statusEl.innerHTML=''; },500);
+    const nVer=temas.filter(t=>t.verificado).length;
+    lines[3]={s:'ok',t:'Temas recomendados ('+nVer+'/'+temas.length+' confirmados na demo): '+temas.map(t=>t.tema.n).join(' · ')}; setStatus(lines);
+    setTimeout(()=>{ statusEl.className='status'; statusEl.innerHTML=''; },700);
     render(); resultsEl.scrollIntoView({behavior:'smooth',block:'start'});
   }catch(err){ alertEl.className='alert on'; alertEl.textContent='Erro ao montar a análise: '+(err.message||err); }
   runBtn.disabled=false;
@@ -1097,7 +1112,7 @@ function render(){
    '<div class="card"><div class="ck">Meios de pagamento na vitrine</div>'+chipsHtml(L.exp.pagamentos)+'<div class="ck" style="margin-top:12px">Frete e entrega</div>'+chipsHtml(L.exp.frete)+'</div></div></div>');
 
   /* temas recomendados */
-  h.push('<div class="section"><div class="sec-title"><span class="kicker">7 · Temas recomendados</span><h2>3 temas certos para esta loja</h2></div><p class="sec-sub">Escolhidos a partir do segmento e das lacunas encontradas acima — não é lista genérica. O "match" indica a aderência ao caso desta loja. Abra a demonstração ao vivo com o lojista antes de fechar.</p><div class="cards c3">'+
+  h.push('<div class="section"><div class="sec-title"><span class="kicker">7 · Temas recomendados</span><h2>3 temas certos para esta loja</h2></div><p class="sec-sub">Partindo do diagnóstico acima (segmento e experiência de navegação), a ferramenta pré-seleciona os candidatos, <b>abre a demonstração de cada um e analisa ao vivo</b> quais recursos o tema realmente entrega — e recomenda os que cobrem as lacunas da loja. O "match" reflete essa cobertura. Ainda assim, abra a demo com o lojista antes de fechar.</p><div class="cards c3">'+
    state.temas.map(r=>temaCardHtml(r)).join('')+'</div></div>');
 
   /* argumentos */
@@ -1121,10 +1136,17 @@ function render(){
   resultsEl.innerHTML=h.join(''); resultsEl.className='on'; wireResults();
 }
 function temaCardHtml(r){ const t=r.tema; const parcela=t.preco/12;
+  const selo = r.verificado
+    ? '<div class="ver ok"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6L9 17l-5-5"/></svg>Demonstração analisada ao vivo</div>'
+    : '<div class="ver no"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9"/><path d="M12 8v4M12 16h.01"/></svg>Demo não confirmada — verifique ao vivo</div>';
+  const conf = (r.verificado && r.confirmados && r.confirmados.length)
+    ? '<div class="conf"><span class="cl">Confirmado na demo, cobre a lacuna da loja:</span><div class="ctags">'+r.confirmados.slice(0,4).map(c=>'<span class="ct yes">✓ '+esc(cap(c))+'</span>').join('')+'</div></div>'
+    : (r.verificado && r.extrasDemo && r.extrasDemo.length ? '<div class="conf"><span class="cl">Confirmado na demo:</span><div class="ctags">'+r.extrasDemo.map(c=>'<span class="ct yes">✓ '+esc(cap(c))+'</span>').join('')+'</div></div>':'');
   return '<div class="theme '+(r.top?'top':'')+'">'+(r.top?'<span class="flag"><svg width="11" height="11" viewBox="0 0 24 24" fill="#fff"><path d="M3 7l4 4 5-7 5 7 4-4-2 12H5z"/></svg>Mais aderente</span>':'')+
     '<div class="thead"><div class="cat">'+esc(cap(t.seg==='geral'?'Versátil':(SEGMENTOS.find(s=>s.id===t.seg)||{}).nome||t.seg))+'</div><h3>'+esc(t.n)+'</h3><div class="dev">por '+esc(t.dev)+(t.dia?'<span class="pill">Diamante</span>':'')+'</div></div>'+
     '<div class="match">'+ringMatch(r.match)+'<div class="ml"><b>'+r.match+'% de aderência</b><span>ao caso desta loja</span></div></div>'+
-    '<div class="body"><div class="why">'+esc(r.motivo)+'</div><div class="tags">'+r.tagsRotulo.map(tg=>'<span class="tg">'+esc(tg)+'</span>').join('')+'</div>'+
+    selo+
+    '<div class="body"><div class="why">'+esc(r.motivo)+'</div>'+conf+'<div class="tags">'+r.tagsRotulo.map(tg=>'<span class="tg">'+esc(tg)+'</span>').join('')+'</div>'+
     '<div class="price"><div class="p">'+brl(t.preco)+'<small>ou 12x de '+brl(parcela)+'</small></div><div class="once">compra única<br/>sem mensalidade</div></div></div>'+
     '<div class="links"><a class="demo" href="'+esc(t.demo)+'" target="_blank" rel="noopener">Ver demonstração</a><a class="pg" href="'+esc(t.url)+'" target="_blank" rel="noopener">Página do tema</a></div></div>'; }
 function wireResults(){
@@ -1142,7 +1164,7 @@ function buildSummary(){
   X.push(''); X.push('O QUE ESTÁ BOM'); state.fortes.forEach(f=>X.push('+ '+f.titulo));
   X.push(''); X.push('O QUE TRAVA A CONVERSÃO'); state.fracos.forEach((d,i)=>X.push((i+1)+'. '+d.titulo+' — '+d.evidencia));
   X.push(''); X.push('TEMAS RECOMENDADOS');
-  state.temas.forEach((r,i)=>X.push((i+1)+'. '+r.tema.n+' ('+r.match+'% de aderência · '+brl(r.tema.preco)+') — '+r.tema.url));
+  state.temas.forEach((r,i)=>X.push((i+1)+'. '+r.tema.n+' ('+r.match+'% de aderência · '+brl(r.tema.preco)+') '+(r.verificado?'[demo analisada ao vivo'+(r.confirmados&&r.confirmados.length?': '+r.confirmados.slice(0,3).join(', '):'')+']':'[demo não confirmada]')+' — '+r.tema.url));
   X.push(''); X.push('CONCLUSÃO'); X.push(state.concl||'');
   X.push(''); X.push('MENSAGEM PRONTA'); X.push(state.args.pitch);
   return X.join('\n');
@@ -1231,8 +1253,8 @@ function generatePDF(){
   newPage();
   secTitle('Recomendação','Os temas ideais para a sua loja');
   wrap('Selecionados a partir do segmento de '+L.perfil.segmento.nome.toLowerCase()+' e das lacunas encontradas acima. Todos são compra única, sem mensalidade sobre o tema. Confira a demonstração ao vivo antes de decidir.',10,'normal',INK2,14,M,W-2*M); y+=8;
-  state.temas.forEach((r,i)=>{ const t=r.tema; need(120);
-    const bx=M, bw=W-2*M, bh=104;
+  state.temas.forEach((r,i)=>{ const t=r.tema; need(140);
+    const bx=M, bw=W-2*M, bh=124;
     doc.setDrawColor(r.top?GOLD[0]:LINE[0],r.top?GOLD[1]:LINE[1],r.top?GOLD[2]:LINE[2]); doc.setLineWidth(r.top?1.4:.8);
     doc.setFillColor(255,255,255); doc.roundedRect(bx,y,bw,bh,10,10,'FD');
     /* faixa lateral */
@@ -1246,6 +1268,11 @@ function generatePDF(){
     doc.text('compra única · 12x de '+brl(t.preco/12),bx+bw-16,iy+8,{align:'right'});
     iy+=20; const motivo=doc.splitTextToSize(r.motivo,bw-36); setF(9,'normal'); col(INK2);
     motivo.slice(0,3).forEach(ln=>{ doc.text(ln,bx+18,iy); iy+=12; });
+    /* verificação ao vivo */
+    iy+=2; const conf=(r.confirmados&&r.confirmados.length?r.confirmados:(r.extrasDemo||[]));
+    if(r.verificado&&conf.length){ setF(8,'bold'); col(GREEN); doc.text('Confirmado na demo: ',bx+18,iy); const w=doc.getTextWidth('Confirmado na demo: '); setF(8,'normal'); col(INK2); doc.text(doc.splitTextToSize(conf.slice(0,3).map(cap).join(' · '),bw-36-w)[0],bx+18+w,iy); }
+    else if(r.verificado){ setF(8,'italic'); col(MUT); doc.text('Demonstração analisada ao vivo — base de experiência confirmada.',bx+18,iy); }
+    else { setF(8,'italic'); col([138,106,30]); doc.text('Recursos não confirmados ao vivo — abra a demonstração antes de fechar.',bx+18,iy); }
     y+=bh+14; });
 
   /* conclusão */
