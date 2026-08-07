@@ -6,40 +6,44 @@
 <title>Raio-X de Experiência + Tema Ideal · Loja de Temas Tray</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-<link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@500;600;700&family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+<link href="https://api.fontshare.com/v2/css?f[]=satoshi@400,500,700,900&display=swap" rel="stylesheet">
 <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
 <style>
   :root{
-    --ink:#0F1D2E; --ink-2:#3D4F62; --muted:#6B7C8D;
-    --line:#E4EAF0; --line-2:#EEF2F6;
-    --bg:#F4F7FA; --surface:#FFFFFF; --surface-2:#F8FAFC;
-    --teal:#0FB6A0; --teal-deep:#0A8676; --teal-soft:#E3F7F2;
-    --gold:#E19A2E; --gold-soft:#FBF1DD; --gold-line:#F0DCAF;
+    --ink:#00012A; --ink-2:#252D69; --muted:#6B77A0;
+    --line:#DCE6F2; --line-2:#EAF1F9;
+    --bg:#ECF5FB; --surface:#FFFFFF; --surface-2:#F4F9FD;
+    --teal:#00A0DC; --teal-deep:#2551A0; --teal-soft:#DDF1FB;
+    --gold:#252D69; --gold-soft:#E7EBF5; --gold-line:#C6CEE7;
+    --amber:#E1A21E;
     --red:#C0554F; --red-soft:#FDF4F3; --red-line:#F2D6D3;
     --green:#2E9E6B; --green-soft:#E6F6EE; --green-line:#BCE6CE;
-    --miss:#B9C4CE;
-    --shadow:0 1px 2px rgba(15,29,46,.04), 0 8px 28px rgba(15,29,46,.06);
-    --shadow-lg:0 12px 40px rgba(15,29,46,.12);
+    --miss:#AEBBD0;
+    --shadow:0 1px 2px rgba(0,1,42,.04), 0 8px 28px rgba(0,1,42,.07);
+    --shadow-lg:0 12px 40px rgba(0,1,42,.14);
     --radius:16px;
   }
   *{box-sizing:border-box}
   html,body{margin:0;padding:0}
-  body{font-family:'Inter',system-ui,-apple-system,sans-serif;background:var(--bg);color:var(--ink);-webkit-font-smoothing:antialiased;line-height:1.5}
-  h1,h2,h3,h4{font-family:'Space Grotesk','Inter',sans-serif}
+  body{font-family:'Satoshi',system-ui,-apple-system,sans-serif;background:var(--bg);color:var(--ink);-webkit-font-smoothing:antialiased;line-height:1.5}
+  h1,h2,h3,h4{font-family:'Satoshi',system-ui,sans-serif;font-weight:900;letter-spacing:-.02em}
   .wrap{max-width:1180px;margin:0 auto;padding:0 20px}
   .topbar{background:var(--ink);color:#fff;padding:14px 0}
   .topbar .wrap{display:flex;align-items:center;justify-content:space-between;gap:16px;flex-wrap:wrap}
-  .brand{display:flex;align-items:center;gap:12px;font-weight:600}
-  .brand .dot{width:34px;height:34px;border-radius:9px;background:var(--teal);display:grid;place-items:center;flex:none}
-  .brand .dot svg{width:19px;height:19px}
-  .brand small{display:block;font-weight:400;font-size:12px;color:#9FB0BF;letter-spacing:.02em}
-  .brand b{font-family:'Space Grotesk';font-size:16px;letter-spacing:-.01em}
-  .topbar .tag{font-size:12px;color:#9FB0BF;border:1px solid #26384A;border-radius:999px;padding:5px 12px}
+  .brand{display:flex;align-items:center;gap:14px;font-weight:600}
+  .brand .logo{display:flex;align-items:center;gap:9px;flex:none}
+  .brand .logo svg{display:block}
+  .brand .wordmark{font-family:'Satoshi';font-weight:900;font-size:23px;letter-spacing:-.02em;color:#fff;line-height:1}
+  .brand .wordmark .dot{color:var(--teal)}
+  .brand .divider{width:1px;height:26px;background:#2A3A73;flex:none}
+  .brand .id b{font-family:'Satoshi';font-weight:700;font-size:14.5px;letter-spacing:-.01em;display:block}
+  .brand .id small{display:block;font-weight:400;font-size:11.5px;color:#8FA6C9;letter-spacing:.02em}
+  .topbar .tag{font-size:12px;color:#8FA6C9;border:1px solid #2A3A73;border-radius:999px;padding:5px 12px}
   .hero{padding:34px 0 8px}
-  .hero h1{font-size:clamp(26px,3.4vw,40px);line-height:1.08;letter-spacing:-.02em;margin:0 0 10px;max-width:20ch}
-  .hero h1 .u{color:var(--teal-deep)}
+  .hero h1{font-size:clamp(26px,3.4vw,40px);line-height:1.08;letter-spacing:-.02em;margin:0 0 10px;max-width:20ch;color:var(--teal)}
+  .hero h1 .u{color:var(--ink)}
   .hero p.lead{color:var(--ink-2);font-size:16px;max-width:70ch;margin:0}
-  .note{margin-top:16px;background:#FFF9EC;border:1px solid #F1E2BE;color:#8A6A1E;border-radius:12px;padding:12px 15px;font-size:13px;display:flex;gap:10px;align-items:flex-start}
+  .note{margin-top:16px;background:var(--teal-soft);border:1px solid #BEDDF0;color:#2551A0;border-radius:12px;padding:12px 15px;font-size:13px;display:flex;gap:10px;align-items:flex-start}
   .note svg{flex:none;margin-top:1px}
   .panel{background:var(--surface);border:1px solid var(--line);border-radius:var(--radius);box-shadow:var(--shadow);padding:22px;margin-top:18px}
   .panel-head{display:flex;align-items:baseline;justify-content:space-between;gap:12px;margin-bottom:14px}
@@ -50,12 +54,12 @@
   .field .tip{font-size:12px;color:var(--muted)}
   .inp,select.inp{width:100%;border:1px solid var(--line);border-radius:10px;padding:12px 14px;font:inherit;font-size:14px;color:var(--ink);background:var(--surface-2);transition:border .15s,box-shadow .15s}
   .inp::placeholder{color:#9AA8B5}
-  .inp:focus{outline:none;border-color:var(--teal);box-shadow:0 0 0 3px rgba(15,182,160,.15);background:#fff}
+  .inp:focus{outline:none;border-color:var(--teal);box-shadow:0 0 0 3px rgba(0,160,220,.15);background:#fff}
   textarea.paste{display:none;border:1px solid var(--line);border-radius:10px;padding:10px 12px;font:inherit;font-size:12.5px;color:var(--ink-2);background:var(--surface-2);min-height:70px;resize:vertical;width:100%}
   textarea.paste.on{display:block}
   .panel-actions{display:flex;align-items:center;gap:14px;flex-wrap:wrap;margin-top:16px}
   .btn{font:inherit;font-weight:600;border-radius:10px;padding:12px 20px;cursor:pointer;border:1px solid transparent;transition:.15s;display:inline-flex;align-items:center;gap:8px}
-  .btn-primary{background:var(--teal);color:#fff;box-shadow:0 6px 16px rgba(15,182,160,.28)}
+  .btn-primary{background:var(--teal);color:#fff;box-shadow:0 6px 16px rgba(0,160,220,.28)}
   .btn-primary:hover{background:var(--teal-deep)}
   .btn-primary:disabled{background:#AFC9C4;box-shadow:none;cursor:progress}
   .btn-ghost{background:#fff;border-color:var(--line);color:var(--ink-2)}
@@ -83,27 +87,39 @@
   .sec-sub{color:var(--muted);font-size:13.5px;margin:2px 0 16px;max-width:82ch}
 
   /* diagnóstico (faixa assinatura) */
-  .xray{background:linear-gradient(120deg,#12283C,#0F1D2E);color:#fff;border-radius:20px;padding:26px 28px;box-shadow:var(--shadow-lg);position:relative;overflow:hidden}
-  .xray::after{content:"";position:absolute;right:-70px;top:-70px;width:260px;height:260px;border-radius:50%;background:radial-gradient(circle,rgba(15,182,160,.30),transparent 70%)}
+  .xray{background:linear-gradient(120deg,#152a6b,#00012A);color:#fff;border-radius:20px;padding:26px 28px;box-shadow:var(--shadow-lg);position:relative;overflow:hidden}
+  .xray::after{content:"";position:absolute;right:-70px;top:-70px;width:260px;height:260px;border-radius:50%;background:radial-gradient(circle,rgba(0,160,220,.30),transparent 70%)}
   .xray .crown{font-size:12px;font-weight:700;letter-spacing:.12em;text-transform:uppercase;color:var(--teal);display:flex;align-items:center;gap:8px;margin-bottom:12px}
   .xray h2{font-size:clamp(21px,3vw,28px);margin:0 0 10px;letter-spacing:-.02em;position:relative;z-index:1}
   .xray h2 .plat{color:var(--gold)}
-  .xray p{margin:0;color:#C6D2DD;max-width:80ch;font-size:15px;position:relative;z-index:1}
+  .xray p{margin:0;color:#B9C6E6;max-width:80ch;font-size:15px;position:relative;z-index:1}
   .xray-grid{display:grid;gap:22px;margin-top:20px;position:relative;z-index:1}
   @media(min-width:860px){.xray-grid{grid-template-columns:220px 1fr;align-items:center}}
   .gauge{display:flex;align-items:center;gap:14px}
   .gauge svg{flex:none}
-  .gauge text{font-family:'Space Grotesk';fill:#fff}
-  .gauge .gl{font-size:12px;color:#9FB0BF;line-height:1.35}
-  .gauge .gl b{display:block;font-family:'Space Grotesk';font-size:14px;color:#fff}
+  .gauge text{font-family:'Satoshi';fill:#fff}
+  .gauge .gl{font-size:12px;color:#8FA6C9;line-height:1.35}
+  .gauge .gl b{display:block;font-family:'Satoshi';font-size:14px;color:#fff}
   .axes{display:flex;flex-direction:column;gap:9px}
-  .axis{display:grid;grid-template-columns:170px 1fr 42px;align-items:center;gap:10px;font-size:12.5px;color:#C6D2DD}
+  .axis{display:grid;grid-template-columns:170px 1fr 42px;align-items:center;gap:10px;font-size:12.5px;color:#B9C6E6}
   .axis .bar{height:8px;border-radius:99px;background:rgba(255,255,255,.14);overflow:hidden}
   .axis .bar i{display:block;height:100%;border-radius:99px;background:var(--teal)}
-  .axis .bar i.mid{background:var(--gold)} .axis .bar i.low{background:#D9736A}
-  .axis .val{font-family:'Space Grotesk';font-weight:600;color:#fff;text-align:right}
+  .axis .bar i.mid{background:var(--amber)} .axis .bar i.low{background:#D9736A}
+  .axis .val{font-family:'Satoshi';font-weight:600;color:#fff;text-align:right}
   @media(max-width:560px){.axis{grid-template-columns:130px 1fr 38px;font-size:11.5px}}
 
+  .tematual{display:flex;align-items:center;gap:14px;background:var(--surface);border:1px solid var(--line);border-left:4px solid var(--teal);border-radius:14px;padding:15px 18px;box-shadow:var(--shadow);flex-wrap:wrap}
+  .tematual.none{border-left-color:var(--muted)}
+  .tematual .ti{flex:none;width:38px;height:38px;border-radius:10px;background:var(--teal-soft);color:var(--teal-deep);display:grid;place-items:center}
+  .tematual.none .ti{background:var(--surface-2);color:var(--muted)}
+  .tematual .tb{flex:1;min-width:200px}
+  .tematual .tl{font-size:11px;font-weight:700;letter-spacing:.07em;text-transform:uppercase;color:var(--muted);display:block;margin-bottom:2px}
+  .tematual .tb b{font-family:'Satoshi';font-size:17px;letter-spacing:-.01em;color:var(--ink)}
+  .tematual .tv{font-size:11px;font-weight:600;color:var(--muted);background:var(--surface-2);border:1px solid var(--line);border-radius:6px;padding:1px 6px;margin-left:4px}
+  .tematual .tsrc{display:block;font-size:12.5px;color:var(--muted);margin-top:3px}
+  .tematual .tsrc.yes{color:var(--teal-deep);font-weight:600}
+  .tematual .tlink{flex:none;font-size:13px;font-weight:700;text-decoration:none;color:var(--teal-deep);background:var(--teal-soft);border:1px solid #BCE9E0;border-radius:9px;padding:9px 14px;white-space:nowrap}
+  .tematual .tlink:hover{background:#CFEBFB}
   .cards{display:grid;gap:16px}
   @media(min-width:720px){.cards.c2{grid-template-columns:repeat(2,1fr)}}
   @media(min-width:960px){.cards.c3{grid-template-columns:repeat(3,1fr)}}
@@ -130,8 +146,8 @@
   .pain .why{font-size:13px;color:var(--muted);margin-bottom:10px}
   .pain .fix{font-size:13.5px;color:var(--ink-2);background:var(--teal-soft);border-radius:9px;padding:10px 12px;line-height:1.5}
   .pain .fix b{color:var(--teal-deep)}
-  .pain .mkt{font-size:12.5px;color:#8A6A1E;background:var(--gold-soft);border:1px solid var(--gold-line);border-radius:9px;padding:9px 11px;margin-top:9px;line-height:1.5}
-  .pain .mkt b{color:#6E5312}
+  .pain .mkt{font-size:12.5px;color:#2551A0;background:var(--gold-soft);border:1px solid var(--gold-line);border-radius:9px;padding:9px 11px;margin-top:9px;line-height:1.5}
+  .pain .mkt b{color:#00012A}
   .falta-list{display:flex;flex-direction:column;gap:9px}
   .falta{display:flex;gap:11px;align-items:flex-start;background:var(--surface);border:1px solid var(--line);border-radius:12px;padding:13px 15px;box-shadow:var(--shadow)}
   .falta .ic{flex:none;width:26px;height:26px;border-radius:8px;background:var(--red-soft);color:var(--red);display:grid;place-items:center;font-weight:800;margin-top:1px}
@@ -143,28 +159,28 @@
   @media(min-width:720px){.bench{grid-template-columns:repeat(2,1fr)}}
   @media(min-width:1000px){.bench{grid-template-columns:repeat(3,1fr)}}
   .bmc{background:var(--surface);border:1px solid var(--line);border-radius:14px;padding:16px 18px;box-shadow:var(--shadow)}
-  .bmc .num{font-family:'Space Grotesk';font-size:26px;font-weight:700;color:var(--teal-deep);line-height:1}
+  .bmc .num{font-family:'Satoshi';font-size:26px;font-weight:700;color:var(--teal-deep);line-height:1}
   .bmc p{margin:8px 0 0;font-size:13px;color:var(--ink-2);line-height:1.5}
   .bmc .src{font-size:11px;color:var(--muted);margin-top:8px}
 
   /* melhorias */
   .imp{background:var(--surface);border:1px solid var(--line);border-radius:14px;padding:16px 18px;box-shadow:var(--shadow);display:flex;gap:13px}
-  .imp .n{flex:none;width:30px;height:30px;border-radius:9px;background:var(--teal-soft);color:var(--teal-deep);display:grid;place-items:center;font-family:'Space Grotesk';font-weight:700;font-size:15px}
+  .imp .n{flex:none;width:30px;height:30px;border-radius:9px;background:var(--teal-soft);color:var(--teal-deep);display:grid;place-items:center;font-family:'Satoshi';font-weight:700;font-size:15px}
   .imp .bd h4{margin:0 0 5px;font-size:15px;letter-spacing:-.01em}
   .imp .bd p{margin:0;font-size:13.5px;color:var(--ink-2);line-height:1.55}
 
   /* temas recomendados */
   .theme{background:var(--surface);border:1px solid var(--line);border-radius:16px;box-shadow:var(--shadow);overflow:hidden;display:flex;flex-direction:column;position:relative}
-  .theme.top{border-color:var(--gold-line);box-shadow:0 12px 34px rgba(225,154,46,.18)}
+  .theme.top{border-color:var(--gold-line);box-shadow:0 12px 34px rgba(37,45,105,.18)}
   .theme .flag{position:absolute;top:12px;left:12px;z-index:2;background:var(--gold);color:#fff;font-size:11px;font-weight:700;letter-spacing:.04em;text-transform:uppercase;padding:5px 10px;border-radius:999px;display:flex;align-items:center;gap:5px}
-  .theme .thead{background:linear-gradient(135deg,#12283C,#0F1D2E);color:#fff;padding:20px 20px 16px}
+  .theme .thead{background:linear-gradient(135deg,#152a6b,#00012A);color:#fff;padding:20px 20px 16px}
   .theme .cat{font-size:11px;font-weight:700;letter-spacing:.06em;text-transform:uppercase;color:var(--teal)}
   .theme .thead h3{margin:4px 0 2px;font-size:19px;letter-spacing:-.01em}
-  .theme .dev{font-size:12px;color:#9FB0BF}
-  .theme .dev .pill{display:inline-block;margin-left:6px;background:rgba(225,154,46,.2);color:#F0C878;border:1px solid rgba(225,154,46,.4);border-radius:999px;padding:1px 8px;font-size:10.5px;font-weight:700}
+  .theme .dev{font-size:12px;color:#8FA6C9}
+  .theme .dev .pill{display:inline-block;margin-left:6px;background:rgba(37,45,105,.2);color:#F0C878;border:1px solid rgba(37,45,105,.4);border-radius:999px;padding:1px 8px;font-size:10.5px;font-weight:700}
   .theme .match{display:flex;align-items:center;gap:12px;padding:16px 20px;border-bottom:1px solid var(--line-2)}
   .theme .match svg{flex:none}
-  .theme .match .ml b{display:block;font-family:'Space Grotesk';font-size:15px;color:var(--ink)}
+  .theme .match .ml b{display:block;font-family:'Satoshi';font-size:15px;color:var(--ink)}
   .theme .match .ml span{font-size:12px;color:var(--muted)}
   .theme .body{padding:16px 20px;flex:1;display:flex;flex-direction:column;gap:12px}
   .theme .why{font-size:13.5px;color:var(--ink-2);line-height:1.55}
@@ -173,15 +189,16 @@
   .theme .tg{font-size:11px;font-weight:600;padding:3px 9px;border-radius:999px;background:var(--surface-2);border:1px solid var(--line);color:var(--ink-2)}
   .theme .ver{display:flex;align-items:center;gap:7px;font-size:11.5px;font-weight:600;padding:9px 20px;border-top:1px solid var(--line-2)}
   .theme .ver.ok{color:var(--green);background:var(--green-soft)}
-  .theme .ver.no{color:#8A6A1E;background:var(--gold-soft)}
+  .theme .ver.no{color:#2551A0;background:var(--gold-soft)}
   .theme .ver svg{flex:none}
   .theme .conf{background:var(--surface-2);border:1px solid var(--line);border-radius:10px;padding:9px 11px}
   .theme .conf .cl{font-size:11px;font-weight:700;letter-spacing:.02em;color:var(--muted);display:block;margin-bottom:6px}
   .theme .conf .ctags{display:flex;flex-wrap:wrap;gap:5px}
   .theme .conf .ct{font-size:11px;font-weight:600;padding:3px 8px;border-radius:999px}
   .theme .conf .ct.yes{background:var(--teal-soft);color:var(--teal-deep);border:1px solid #BCE9E0}
+  .theme .flag.up{left:auto;right:12px;background:var(--teal)}
   .theme .price{display:flex;align-items:baseline;justify-content:space-between;gap:10px;border-top:1px dashed var(--line);padding-top:12px}
-  .theme .price .p{font-family:'Space Grotesk';font-size:19px;font-weight:600;color:var(--ink)}
+  .theme .price .p{font-family:'Satoshi';font-size:19px;font-weight:600;color:var(--ink)}
   .theme .price .p small{font-family:'Inter';font-size:12px;font-weight:500;color:var(--muted);display:block}
   .theme .price .once{font-size:11px;color:var(--green);font-weight:700;text-align:right}
   .theme .links{display:flex;gap:8px;padding:0 20px 18px}
@@ -202,7 +219,7 @@
   .guide .gnote{font-size:12.5px;color:var(--muted);background:var(--surface-2);border:1px dashed var(--line);border-radius:9px;padding:9px 12px;margin-bottom:20px;display:flex;gap:8px;align-items:flex-start}
   .gstep{display:flex;gap:16px;padding-bottom:20px;position:relative}
   .gstep:not(:last-child)::before{content:"";position:absolute;left:15px;top:34px;bottom:0;width:2px;background:var(--line)}
-  .gstep .n{flex:none;width:32px;height:32px;border-radius:50%;background:var(--ink);color:#fff;display:grid;place-items:center;font-family:'Space Grotesk';font-weight:700;font-size:14px;z-index:1}
+  .gstep .n{flex:none;width:32px;height:32px;border-radius:50%;background:var(--ink);color:#fff;display:grid;place-items:center;font-family:'Satoshi';font-weight:700;font-size:14px;z-index:1}
   .gstep.warn .n{background:#C0703F}
   .gstep .body{flex:1;min-width:0}
   .gstep h4{margin:5px 0 8px;font-size:15.5px;letter-spacing:-.01em}
@@ -238,14 +255,21 @@
 </head>
 <body>
 <header class="topbar"><div class="wrap">
-  <div class="brand"><span class="dot"><svg viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="2.3" stroke-linecap="round" stroke-linejoin="round"><circle cx="11" cy="11" r="7"/><path d="M21 21l-4.3-4.3"/></svg></span><span><b>Raio-X + Tema Ideal</b><small>Loja de Temas Tray · time de vendas</small></span></div>
+  <div class="brand">
+    <span class="logo">
+      <svg width="34" height="30" viewBox="0 0 54 47" aria-label="Tray" role="img"><path d="M27.5 16 H47.6 L41.7 30.2 Q41.2 31.2 40.1 31.2 H31.6 Q30.5 31.2 30 30.2 Z" fill="#00A0DC"/><path d="M12 16.4 H16.6 C19 16.4 19.8 18 20.6 20.4 C22 24.4 23.9 27.8 26 31 L21.9 40.6" fill="none" stroke="#fff" stroke-width="4.3" stroke-linecap="round" stroke-linejoin="round"/><path d="M29.2 17.4 C28.2 22 27.1 26.6 26 31" fill="none" stroke="#fff" stroke-width="4.3" stroke-linecap="round"/><circle cx="23.7" cy="42.7" r="2.5" fill="#fff"/><circle cx="39" cy="42.7" r="2.5" fill="#fff"/></svg>
+      <span class="wordmark">tray<span class="dot">.</span></span>
+    </span>
+    <span class="divider"></span>
+    <span class="id"><b>Raio-X + Tema Ideal</b><small>Loja de Temas · time de vendas</small></span>
+  </div>
   <span class="tag">Roda no navegador · sem instalação</span>
 </div></header>
 <main class="wrap">
   <section class="hero">
     <h1>Raio-X <span class="u">+ Tema Ideal</span></h1>
     <p class="lead">Cole o endereço de uma loja que já roda na Tray. A ferramenta analisa a experiência de compra, usabilidade, navegação e conversão, aponta o que está bom e o que trava a venda com dados de mercado, e — a partir do segmento e do diagnóstico — recomenda 3 temas da Loja de Temas Tray com a justificativa de cada um e os argumentos para o atendimento.</p>
-    <div class="note"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#B8912E" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><path d="M12 8h.01M11 12h1v4h1"/></svg><span>A leitura das páginas usa um relay público, porque o navegador não acessa outros sites diretamente. Se um link não carregar, clique em analisar de novo ou ative o modo de colar código-fonte. Tudo o que aparece aqui é lido da página pública no momento da análise; a demonstração do tema deve ser conferida ao vivo com o lojista antes de fechar.</span></div>
+    <div class="note"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#2551A0" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><path d="M12 8h.01M11 12h1v4h1"/></svg><span>A leitura das páginas usa um relay público, porque o navegador não acessa outros sites diretamente. Se um link não carregar, clique em analisar de novo ou ative o modo de colar código-fonte. Tudo o que aparece aqui é lido da página pública no momento da análise; a demonstração do tema deve ser conferida ao vivo com o lojista antes de fechar.</span></div>
 
     <div class="panel">
       <div class="panel-head"><span class="eyebrow">Dados da análise</span><span class="hint">Leva de 10 a 40 segundos</span></div>
@@ -350,13 +374,19 @@ function detectPlataforma(html,url){
 
 /* reconhecedor de cálculo de frete — cobre home e, principalmente, a página de produto
    (na Tray o cálculo por CEP fica no produto). Inclui o campo de CEP como sinal forte. */
-const FRETE_RX=/calcul\w*\s*(o\s*)?(frete|prazo)|simul\w*\s*(o\s*)?frete|calcule\s*o\s*frete|consultar\s*(frete|prazo)|frete\s*e\s*prazo|prazo\s*e\s*frete|meios?\s*de\s*(envio|entrega)|(digite|informe|seu|calcule)\s*(o\s*)?cep|calcularfrete|calcular-frete|frete-e-prazo|shipping[-_]?calc|name=["']cep["']|id=["']cep["']|data-cep|placeholder=["'][^"']*cep/i;
+/* reconhecedor de cálculo de frete — em camadas, para não gerar falso negativo.
+   Cobre texto, campo de CEP, widget de frete da Tray e endpoints/scripts de simulação. */
+const FRETE_RX=/calcul\w*\s*(o\s*)?(frete|prazo)|simul\w*\s*(o\s*)?(frete|prazo|entrega)|calcule\s*o\s*frete|consult\w*\s*(o\s*)?(frete|prazo)|frete\s*e\s*prazo|prazo\s*e\s*frete|prazo\s*de\s*entrega|meios?\s*de\s*(envio|entrega)|op[çc][õo]es?\s*de\s*(frete|entrega)|(digite|informe|preencha|seu|calcule|qual\s*seu)\s*(o\s*)?cep|calcular[-_ ]?frete|frete[-_ ]?e[-_ ]?prazo|simulador[-_ ]?(de[-_ ]?)?frete|shipping[-_]?calc/i;
+/* sinais estruturais do widget de frete (campo/rota/script), independentes de texto visível */
+const FRETE_ESTRUT=/name=["'](cep|zipcode|zip|postal_?code|cep_?entrega|Cep)["']|id=["'](cep|Cep|cepConsulta|cep_frete|frete_cep|calcular_frete|calculo_frete|shipping-cep)["']|placeholder=["'][^"']*cep|data-cep|data-shipping|class=["'][^"']*(frete|shipping|cep|calculo-frete|shipping-calculator|freteprazo|frete-prazo)[^"']*["']|\/web_api\/[^"']*(price|shipping|frete)|\/loja\/(produto_frete|frete|calcular_frete)|calcularFrete|calcular_frete|simulaFrete|getShipping|shippingSimulator|freteSimulador/i;
+function temFrete(htmlAll){ return FRETE_RX.test(htmlAll) || FRETE_ESTRUT.test(htmlAll); }
+const FRETE_ALL=new RegExp(FRETE_RX.source+'|'+FRETE_ESTRUT.source,'i');
 
 /* 2.2 recursos essenciais de e-commerce — o que uma loja precisa exibir */
 const RECURSOS_BASE=[
  {n:'Pix como meio de pagamento',rx:/\bpix\b/i,foco:'conversao',porque:'Pix já responde por boa parte das vendas online e cai na conta na hora.'},
  {n:'Parcelamento visível na vitrine',rx:/\d{1,2}\s*x\s*(de\s*)?r\$|sem juros|parcel/i,foco:'conversao',porque:'Mostrar a parcela na vitrine aumenta a chance de o cliente considerar o produto.'},
- {n:'Cálculo de frete antes do carrinho',rx:FRETE_RX,foco:'conversao',porque:'Frete escondido até o fim é o principal motivo de abandono de carrinho no Brasil.'},
+ {n:'Cálculo de frete antes do carrinho',rx:FRETE_ALL,foco:'conversao',porque:'Frete escondido até o fim é o principal motivo de abandono de carrinho no Brasil.'},
  {n:'Frete grátis com regra clara',rx:/frete gr[áa]tis/i,foco:'conversao',porque:'Regra de frete grátis por valor puxa o ticket médio para cima.'},
  {n:'Cupom de desconto',rx:/cupom|c[óo]digo de desconto/i,foco:'conversao',porque:'Cupom destrava a primeira compra e reativa cliente parado.'},
  {n:'Avaliações de clientes no produto',rx:/avalia[çc][ãa]o|avalia[çc][õo]es|trustvox|yourviews|review|opini[õa]o de quem comprou|estrelas/i,foco:'confianca',porque:'Prova social decide a compra de quem não conhece a marca.'},
@@ -371,8 +401,8 @@ const RECURSOS_BASE=[
 /* 2.3 sinais rastreados no código da loja */
 const SINAIS={
  pagamento:[['Visa',/\bvisa\b/i],['Mastercard',/mastercard|master card/i],['Elo',/\belo\b/i],['American Express',/amex|american express/i],['Hipercard',/hipercard/i],['Pix',/\bpix\b/i],['Boleto',/boleto/i],['PayPal',/paypal/i],['Mercado Pago',/mercado ?pago/i],['PagSeguro / PagBank',/pagseguro|pagbank/i],['PicPay',/picpay/i]],
- frete:[['Cálculo de frete por CEP',FRETE_RX],['Frete grátis',/frete gr[áa]tis/i],['Correios',/correios|sedex|pac\b/i],['Transportadora',/jadlog|loggi|total express|azul cargo|braspress/i],['Prazo de entrega visível',/prazo de entrega|receba at[ée]|entrega em \d|em at[ée] \d+ dias/i],['Retirada na loja',/retirar na loja|retirada na loja|retire na loja/i]],
- prova:[['Avaliações de produto',/trustvox|yourviews|avalia[çc][õo]es|review|estrelas/i],['Depoimentos',/depoiment|o que dizem|clientes satisfeit/i],['Selo de segurança',/site blindado|selo|ssl|seguran[çc]a|google safe/i],['Reclame Aqui',/reclame ?aqui/i],['CNPJ no rodapé',/cnpj/i],['Política de troca e devolução',/troca e devolu|pol[íi]tica de troca|devolu[çc][ãa]o/i]],
+ frete:[['Cálculo de frete por CEP',FRETE_ALL],['Frete grátis',/frete gr[áa]tis/i],['Correios',/correios|sedex|pac\b/i],['Transportadora',/jadlog|loggi|total express|azul cargo|braspress/i],['Prazo de entrega visível',/prazo de entrega|receba at[ée]|entrega em \d|em at[ée] \d+ dias/i],['Retirada na loja',/retirar na loja|retirada na loja|retire na loja/i]],
+ prova:[['Avaliações de produto',/trustvox|yourviews|opinionbox|konfio|avalia[çc][õoa]|review|rating|estrelas|nota m[ée]dia|aggregaterating|reviewcount|star-rating|produto-avaliacao/i],['Depoimentos',/depoiment|o que dizem|clientes satisfeit/i],['Selo de segurança',/site blindado|selo|ssl|seguran[çc]a|google safe/i],['Reclame Aqui',/reclame ?aqui/i],['CNPJ no rodapé',/cnpj/i],['Política de troca e devolução',/troca e devolu|pol[íi]tica de troca|devolu[çc][ãa]o/i]],
  atendimento:[['WhatsApp',/wa\.me|api\.whatsapp|whatsapp/i],['Chat online',/jivochat|tawk\.to|zendesk|crisp\.chat|octadesk|movidesk|olark|intercom|zenvia/i],['Telefone / SAC visível',/\(\d{2}\)\s?\d{4,5}-?\d{4}|0800/i]],
  canais:[['Instagram',/instagram\.com/i],['Facebook',/facebook\.com/i],['TikTok',/tiktok\.com/i],['YouTube',/youtube\.com|youtu\.be/i],['Mercado Livre',/mercadolivre|mercadolibre/i],['Shopee',/shopee\.com/i],['Amazon',/amazon\.com\.br/i]],
  analytics:[['Google Analytics 4',/googletagmanager\.com\/gtag\/js\?id=G-|\bG-[A-Z0-9]{9,12}\b/],['Google Tag Manager',/googletagmanager\.com\/gtm\.js|\bGTM-[A-Z0-9]{5,8}\b/],['Meta Pixel',/connect\.facebook\.net\/[a-z_]+\/fbevents\.js|fbq\(\s*['"]init/],['Google Ads',/googleadservices\.com\/pagead\/conversion|\bAW-\d{9,}/],['TikTok Pixel',/analytics\.tiktok\.com\/i18n\/pixel|ttq\.(load|track|page)\b/]]
@@ -604,6 +634,45 @@ const TEMA_MAP_SEG={ // mapeia id de segmento detectado -> pool de temas do cat�
 };
 const TAG_ROTULO={conversao:'Foco em conversão',navegacao:'Navegação e filtros',premium:'Vitrine premium',catalogo:'Catálogo grande',clean:'Visual clean',entrada:'Ótimo custo',performance:'Alta performance',mobile:'Mobile-first'};
 function faixaTema(preco){ return preco<=600?'entrada':preco<=1500?'intermediario':'premium'; }
+/* nível/robustez intrínseca de um tema — usado para nunca sugerir um tema inferior ao atual */
+function nivelTema(t){
+  if(!t) return 0;
+  const val={premium:2.6,conversao:2,navegacao:2,catalogo:1.6,performance:1,mobile:1,clean:.5,entrada:0};
+  let s=(t.tags||[]).reduce((a,tg)=>a+(val[tg]||0),0);
+  const fx=faixaTema(t.preco); s+= fx==='premium'?3:fx==='intermediario'?1.5:0;
+  if(t.dia) s+=1;
+  return Math.round(s*10)/10;
+}
+/* lê o tema publicado a partir dos atributos que os temas Tray injetam no header */
+function detectarTemaAtual(htmlAll){
+  const out={nome:'',versao:''};
+  const rxNome=[/data-tray-theme\s*=\s*["']([^"']{2,60})["']/i,/data-theme-name\s*=\s*["']([^"']{2,60})["']/i,/data-theme\s*=\s*["']([^"']{2,60})["']/i,/tray[-_]?theme["']?\s*[:=]\s*["']([^"']{2,60})["']/i];
+  for(const rx of rxNome){ const m=htmlAll.match(rx); if(m&&m[1]&&!/^(default|padrao|blank)$/i.test(m[1].trim())){ out.nome=m[1].trim(); break; } }
+  const mv=htmlAll.match(/data-(?:tray-)?theme-version\s*=\s*["']([^"']{1,20})["']/i); if(mv) out.versao=mv[1].trim();
+  return out;
+}
+/* casa o nome lido com o catálogo da loja de temas (exato -> prefixo -> sobreposição de tokens) */
+function acharTemaCatalogo(nome){
+  if(!nome) return null; const n=norm(nome);
+  let hit=CATALOGO_TEMAS.find(t=>norm(t.n)===n); if(hit) return hit;
+  hit=CATALOGO_TEMAS.find(t=>{const tn=norm(t.n); return tn.startsWith(n)||n.startsWith(tn);}); if(hit) return hit;
+  const nt=new Set(n.split(/[\s-]+/).filter(w=>w.length>2));
+  let best=null,bestSc=0;
+  CATALOGO_TEMAS.forEach(t=>{ const tt=norm(t.n).split(/[\s-]+/).filter(w=>w.length>2); if(!tt.length) return;
+    const ov=tt.filter(w=>nt.has(w)).length; const sc=ov/Math.max(tt.length,nt.size);
+    if(sc>bestSc){bestSc=sc;best=t;} });
+  return bestSc>=0.5?best:null;
+}
+/* acha vários links de produto (para ler o frete/avaliações em mais de uma página) */
+function acharLinksProduto(html,origin,max){
+  max=max||3; const out=[]; const push=h=>{ const u=resolveUrl(h,origin); if(u&&!out.includes(u)) out.push(u); };
+  try{ const dom=new DOMParser().parseFromString(html,'text/html');
+    const hrefs=[...dom.querySelectorAll('a[href]')].map(a=>a.getAttribute('href')||'');
+    hrefs.filter(x=>/\/(produto|product)\//i.test(x)).forEach(push);
+    if(out.length<max) hrefs.filter(x=>/\/p\/[^/]+/i.test(x)||/-p\d+/i.test(x)).forEach(push);
+  }catch(e){ (html.match(/href=["']([^"']*\/(?:produto|product)\/[^"']+)["']/gi)||[]).forEach(m=>{ const h=(m.match(/href=["']([^"']+)["']/i)||[])[1]; if(h) push(h); }); }
+  return out.slice(0,max);
+}
 /* ---------- 3. leitura das páginas ---------- */
 async function fetchText(url,timeout=20000){
   let lastErr=null;
@@ -681,13 +750,20 @@ function analisarLoja(html,url,extras){
   const htmlP=(extras&&extras.produtoHtml)||'';
   const htmlAll=html+'\n'+htmlP;
   L.leuProduto=!!htmlP;
+  /* tema publicado na loja (lido do header do tema Tray) */
+  const ta=detectarTemaAtual(htmlAll);
+  const taCat=acharTemaCatalogo(ta.nome);
+  L.temaAtual={ nome: ta.nome||'', versao: ta.versao||'', catalogo: taCat||null,
+    ehTrayTheme: !!taCat, nivel: nivelTema(taCat),
+    link: taCat? taCat.url : (ta.nome? 'https://temas.tray.com.br/busca?q='+encodeURIComponent(ta.nome):''),
+    buscaLink: ta.nome? 'https://temas.tray.com.br/busca?q='+encodeURIComponent(ta.nome):'' };
 
   /* estrutura e experiência de compra */
   const links=[...dom.querySelectorAll('a[href]')];
   const navLinks=[...dom.querySelectorAll('nav a[href], header a[href], [class*="menu"] a[href]')];
   L.exp={
-    busca:/type=["']search|name=["']q["']|name=["'](busca|search|palavra)|placeholder=["'][^"']*(buscar|pesquis)/i.test(htmlAll),
-    filtros:/filtro|filtrar|refine|facet|ordenar por/i.test(htmlAll),
+    busca:/type=["']search|name=["'](q|busca|search|palavra|palavra_busca|palavraBusca)["']|id=["'][^"']*(busca|search)|class=["'][^"']*(search|busca|js-search)|placeholder=["'][^"']*(buscar|pesquis|o que voc[êe])|data-search|autocomplete-search/i.test(htmlAll),
+    filtros:/filtro|filtrar|refin|facet|ordenar por|smart-?filter|filtro-inteligente|sf-filter|data-filter|filtro-de-produtos/i.test(htmlAll),
     menuMobile:/menu-mobile|mobile-menu|hamburger|navbar-toggle|menu-hamb|drawer/i.test(htmlAll),
     submenu:/submenu|sub-menu|dropdown|megamenu|mega-menu/i.test(htmlAll),
     carrinhoLateral:/carrinho-lateral|side-?cart|mini-?cart|cart-drawer/i.test(htmlAll),
@@ -871,7 +947,7 @@ async function analisarTema(tema){
     cap.filtros=/filtro|filtrar|refine|facet|ordenar por/i.test(H);
     cap.submenu=/submenu|sub-menu|dropdown|megamenu|mega-menu/i.test(H);
     cap.avaliacoes=/trustvox|yourviews|avalia[çc][õo]es|review|estrelas|nota m[ée]dia|opini[õa]o de quem/i.test(H);
-    cap.freteProduto=FRETE_RX.test(H);
+    cap.freteProduto=temFrete(H);
     cap.pix=/\bpix\b/i.test(H);
     cap.parcelamento=/\d{1,2}\s*x\s*(de\s*)?r\$|sem juros|parcel/i.test(H);
     cap.relacionados=/relacionados|quem viu|voc[êe] tamb[ée]m|compre junto|leve junto|complete o look/i.test(H);
@@ -890,42 +966,58 @@ async function analisarTema(tema){
 
 async function recomendarTemas(L,onStep){
   const segKey=TEMA_MAP_SEG[L.perfil.segmento.id]||'geral';
-  let pool=CATALOGO_TEMAS.filter(t=>t.seg===segKey);
-  const complementar=CATALOGO_TEMAS.filter(t=>t.seg==='geral'&&t.seg!==segKey);
-  if(pool.length<4) pool=pool.concat(complementar);
+  const atualId=L.temaAtual&&L.temaAtual.catalogo?norm(L.temaAtual.catalogo.n):(L.temaAtual&&L.temaAtual.nome?norm(L.temaAtual.nome):'');
+  const ehAtual=t=>atualId && (norm(t.n)===atualId || (L.temaAtual.catalogo&&t.url===L.temaAtual.catalogo.url));
+  let pool=CATALOGO_TEMAS.filter(t=>t.seg===segKey && !ehAtual(t));
+  const complementar=CATALOGO_TEMAS.filter(t=>t.seg==='geral'&&t.seg!==segKey&&!ehAtual(t));
+  if(pool.length<5) pool=pool.concat(complementar);
   const needs=calcNeeds(L);
-  // 1) pré-seleção pelo perfil (segmento, porte, ticket) — reduz quantas demos abrimos
-  const ranked=pool.map(t=>({t,pre:scoreTema(t,needs,L)})).sort((a,b)=>b.pre-a.pre);
-  const shortlist=ranked.slice(0,Math.min(5,ranked.length));
+  const nivelAtual=(L.temaAtual&&L.temaAtual.nivel)||0;
+  // capacidades que o tema ATUAL já entrega (lidas da própria loja) — para não sugerir regressão
+  const storeCaps={ busca:L.exp.busca, filtros:L.exp.filtros, submenu:L.exp.submenu, avaliacoes:L.trustSig.avaliacoes, freteProduto:L.convSig.freteCalc, pix:L.convSig.pix, relacionados:L.convSig.relacionados, destaques:L.convSig.destaques, mobile:(L.tec.viewport&&L.tec.velocidade!=='lenta') };
+  const cmpKeys=Object.keys(storeCaps);
+  // 1) pré-seleção pelo perfil — só temas de nível >= ao atual entram (nunca inferiores)
+  let ranked=pool.map(t=>({t,pre:scoreTema(t,needs,L),niv:nivelTema(t)}))
+    .filter(r=>r.niv>=nivelAtual-0.01)
+    .sort((a,b)=>b.pre-a.pre);
+  if(ranked.length<3) ranked=pool.map(t=>({t,pre:scoreTema(t,needs,L),niv:nivelTema(t)})).sort((a,b)=>b.pre-a.pre); // salvaguarda
+  const shortlist=ranked.slice(0,Math.min(6,ranked.length));
   // 2) abre e analisa a demonstração de cada candidato AO VIVO
   if(onStep) onStep('Abrindo e analisando '+shortlist.length+' demonstrações de temas ao vivo…');
   const caps=await Promise.all(shortlist.map(async r=>({r,cap:await analisarTema(r.t)})));
-  // 3) pontua pela cobertura REAL das lacunas da loja (o que a demo entrega de fato)
+  // 3) pontua pela cobertura REAL das lacunas + marca regressão e nível
   const lac=lacunasLoja(L); const gaps=Object.keys(lac).filter(k=>lac[k]);
   const avaliados=caps.map(({r,cap})=>{
     const cobertas=gaps.filter(g=>capCobre(cap,g));
     const faltantesNaDemo=gaps.filter(g=>!capCobre(cap,g));
-    let sc;
-    if(cap.verificado){ sc = cobertas.length*7 + r.pre*0.5; }
-    else { sc = r.pre*0.5 - 1; } // sem confirmação ao vivo, cai atrás dos verificados
-    return {t:r.t, pre:r.pre, sc, cap, cobertas, faltantesNaDemo, verificado:cap.verificado};
+    // regressão: a demo (verificada) NÃO tem algo que a loja já tem hoje
+    const regride = cap.verificado ? cmpKeys.filter(k=>storeCaps[k]===true && cap[k]===false) : [];
+    const upgrade = (r.niv>=nivelAtual-0.01) && ((cobertas.length>0) || (r.niv>nivelAtual));
+    let sc = cap.verificado ? (cobertas.length*7 + r.pre*0.5 + (r.niv-nivelAtual)*1.2) : (r.pre*0.5 - 1 + (r.niv-nivelAtual)*0.8);
+    if(regride.length) sc -= 100; // empurra regressões para o fim
+    return {t:r.t, pre:r.pre, niv:r.niv, sc, cap, cobertas, faltantesNaDemo, verificado:cap.verificado, regride, upgrade};
   }).sort((a,b)=>b.sc-a.sc || (b.verificado?1:0)-(a.verificado?1:0));
-  // 4) top-3 com diversidade de faixa de preço
+  // 4) seleção em camadas: só melhores; sem regressão; com diversidade de faixa
+  const naoRegride=avaliados.filter(r=>r.regride.length===0);
+  const upgrades=naoRegride.filter(r=>r.upgrade);
   const escolhidos=[]; const faixas=new Set();
-  for(const r of avaliados){ if(escolhidos.length>=3) break; const fx=faixaTema(r.t.preco);
-    if(escolhidos.length<2 || !faixas.has(fx) || escolhidos.length===2){ escolhidos.push(r); faixas.add(fx); } }
-  if(escolhidos.length<3){ for(const r of avaliados){ if(escolhidos.length>=3) break; if(!escolhidos.includes(r)) escolhidos.push(r); } }
+  const tenta=(lista)=>{ for(const r of lista){ if(escolhidos.length>=3) break; if(escolhidos.includes(r)) continue; const fx=faixaTema(r.t.preco);
+      if(escolhidos.length<2 || !faixas.has(fx) || escolhidos.length===2){ escolhidos.push(r); faixas.add(fx); } } };
+  tenta(upgrades); tenta(naoRegride); tenta(avaliados);
+  const semUpgrade = upgrades.length===0;
   const totalGaps=Math.max(1,gaps.length);
-  return escolhidos.slice(0,3).map((r,i)=>{
+  const out=escolhidos.slice(0,3).map((r,i)=>{
     const tema=r.t;
     const base = r.verificado ? Math.round(58 + (r.cobertas.length/totalGaps)*38) : Math.round(60 + (r.pre/ (avaliados[0].pre||1))*18);
     const match=pct(Math.max(60, Math.min(97, base - i)));
     const confirmados=r.cobertas.map(g=>CAP_ROTULO[g]).filter(Boolean);
     const extrasDemo=['avaliacoes','freteProduto','filtros','busca','relacionados','zoom','destaques'].filter(k=>r.cap[k]&&!r.cobertas.includes(k)).map(k=>CAP_ROTULO[k]).filter(Boolean);
-    return {tema, match, faixa:faixaTema(tema.preco), verificado:r.verificado, cap:r.cap,
+    return {tema, match, faixa:faixaTema(tema.preco), verificado:r.verificado, cap:r.cap, nivel:r.niv, ehUpgrade:r.upgrade&&r.regride.length===0,
       confirmados, extrasDemo:extrasDemo.slice(0,3), naoConfirma:r.faltantesNaDemo.map(g=>CAP_ROTULO[g]).filter(Boolean).slice(0,3),
       motivo:justificarTema(L,tema,needs,r), tagsRotulo:tema.tags.map(tg=>TAG_ROTULO[tg]).filter(Boolean).slice(0,4), top:i===0};
   });
+  out.meta={semUpgrade, nivelAtual, temaAtual:L.temaAtual||null};
+  return out;
 }
 function justificarTema(L,tema,needs,r){
   const loja=L.nomeLoja||'a loja', seg=L.perfil.segmento.nome.toLowerCase();
@@ -944,6 +1036,16 @@ function justificarTema(L,tema,needs,r){
     parts.push('Não foi possível abrir a demonstração agora para confirmar os recursos ao vivo — pela ficha do tema ele traz '+listPt(tema.tags.map(t=>lower1(TAG_ROTULO[t]||t)).slice(0,3))+'. Antes de fechar, abra a demo e confirme busca, filtros, frete no produto e avaliações.');
   }
   const enc= fx==='entrada'?'Cabe no orçamento de uma operação enxuta':(fx==='premium'?'É um investimento à altura de uma operação que quer se posicionar acima da média':'Tem um custo-benefício equilibrado para escalar');
+  // comparação com o tema atual — deixa explícito que é um upgrade, não uma troca lateral
+  const ta=L.temaAtual;
+  if(ta&&ta.nome){
+    if(r&&r.upgrade&&(!r.regride||!r.regride.length)){
+      const ganho=(r.cobertas||[]).map(g=>CAP_ROTULO[g]).filter(Boolean);
+      parts.push('É um passo acima do tema atual da loja ('+ta.nome+')'+(ganho.length?': adiciona '+listPt(ganho.slice(0,2))+' sem abrir mão do que a loja já tem':' — mais completo e sem perder recursos atuais')+'.');
+    } else {
+      parts.push('Não supera o tema atual ('+ta.nome+') em recursos; considere-o apenas se o objetivo for renovar o visual da loja, não ganhar funcionalidades.');
+    }
+  }
   parts.push(enc+' — compra única, sem mensalidade sobre o tema'+(tema.dia?', e é de um parceiro Diamante da Tray':'')+'.');
   return parts.join(' ');
 }
@@ -1031,9 +1133,15 @@ async function run(){
       extras=await sondar(originOf(lojaUrl));
     } else lines[1]={s:'',t:'Sondagem de sitemap desativada'};
     // lê uma página de produto (o cálculo de frete, avaliações e "compre junto" vivem no produto)
-    if(lojaUrl){ let purl=extras.produtoUrl||acharLinkProduto(html,originOf(lojaUrl));
-      if(purl){ lines[1]={s:'load',t:'Lendo uma página de produto para checar frete e avaliações…'}; setStatus(lines);
-        try{ extras.produtoHtml=await fetchText(purl,13000); }catch(e){} } }
+    if(lojaUrl){ const org=originOf(lojaUrl);
+      let urls=[]; if(extras.produtoUrl) urls.push(extras.produtoUrl);
+      acharLinksProduto(html,org,4).forEach(u=>{ if(!urls.includes(u)) urls.push(u); });
+      urls=urls.slice(0,3);
+      if(urls.length){ lines[1]={s:'load',t:'Lendo '+urls.length+' página(s) de produto para conferir frete, avaliações e mais…'}; setStatus(lines);
+        const htmls=await Promise.all(urls.map(u=>fetchText(u,13000).catch(()=>'')));
+        const validos=htmls.filter(h=>h&&h.length>300);
+        if(validos.length){ extras.produtoHtml=validos.join('\n<!--BREAK-->\n'); extras.produtosLidos=validos.length; }
+      } }
     lines[1]={s:extras.produtoHtml?'ok':(extras.sitemap||extras.robots?'ok':'err'),t:(extras.sitemap?'Catálogo: '+extras.produtos+' produtos, '+extras.categorias+' categorias':'Sitemap não lido')+(extras.produtoHtml?' · página de produto lida ✓':' · produto não lido (só a home)')};
     setStatus(lines);
     lines[2]={s:'load',t:'Analisando experiência e conversão…'}; setStatus(lines);
@@ -1058,10 +1166,10 @@ async function run(){
   }catch(err){ alertEl.className='alert on'; alertEl.textContent='Erro ao montar a análise: '+(err.message||err); }
   runBtn.disabled=false;
 }
-function gauge(v){ const r=38,c=2*Math.PI*r,off=c*(1-v/100); const col=v>=70?'#0FB6A0':v>=45?'#E19A2E':'#D9736A';
+function gauge(v){ const r=38,c=2*Math.PI*r,off=c*(1-v/100); const col=v>=70?'#00A0DC':v>=45?'#E1A21E':'#D9736A';
   return '<svg width="94" height="94" viewBox="0 0 94 94"><circle cx="47" cy="47" r="'+r+'" fill="none" stroke="rgba(255,255,255,.16)" stroke-width="9"/><circle cx="47" cy="47" r="'+r+'" fill="none" stroke="'+col+'" stroke-width="9" stroke-linecap="round" stroke-dasharray="'+c.toFixed(1)+'" stroke-dashoffset="'+off.toFixed(1)+'" transform="rotate(-90 47 47)"/><text x="47" y="54" text-anchor="middle" font-size="25" font-weight="700">'+v+'</text></svg>'; }
-function ringMatch(v){ const r=20,c=2*Math.PI*r,off=c*(1-v/100); const col=v>=80?'#0FB6A0':v>=65?'#E19A2E':'#8B6FC7';
-  return '<svg width="52" height="52" viewBox="0 0 52 52"><circle cx="26" cy="26" r="'+r+'" fill="none" stroke="#EEF2F6" stroke-width="6"/><circle cx="26" cy="26" r="'+r+'" fill="none" stroke="'+col+'" stroke-width="6" stroke-linecap="round" stroke-dasharray="'+c.toFixed(1)+'" stroke-dashoffset="'+off.toFixed(1)+'" transform="rotate(-90 26 26)"/><text x="26" y="30" text-anchor="middle" font-family="Space Grotesk" font-size="14" font-weight="700" fill="#0F1D2E">'+v+'</text></svg>'; }
+function ringMatch(v){ const r=20,c=2*Math.PI*r,off=c*(1-v/100); const col=v>=80?'#00A0DC':v>=65?'#E1A21E':'#7A86B8';
+  return '<svg width="52" height="52" viewBox="0 0 52 52"><circle cx="26" cy="26" r="'+r+'" fill="none" stroke="#EEF2F6" stroke-width="6"/><circle cx="26" cy="26" r="'+r+'" fill="none" stroke="'+col+'" stroke-width="6" stroke-linecap="round" stroke-dasharray="'+c.toFixed(1)+'" stroke-dashoffset="'+off.toFixed(1)+'" transform="rotate(-90 26 26)"/><text x="26" y="30" text-anchor="middle" font-family="Satoshi" font-size="14" font-weight="700" fill="#00012A">'+v+'</text></svg>'; }
 function chipsHtml(arr){ return '<div class="chips">'+arr.map(s=>'<span class="chip '+(s.ok?'y':'n')+'">'+(s.ok?'✓':'·')+' '+esc(s.nome)+'</span>').join('')+'</div>'; }
 function toggColl(el){ const b=el.parentElement.querySelector('.coll-body'); if(!b) return; const open=b.hasAttribute('hidden'); if(open){ b.removeAttribute('hidden'); el.classList.add('open'); } else { b.setAttribute('hidden',''); el.classList.remove('open'); } }
 window.toggColl=toggColl;
@@ -1080,6 +1188,20 @@ function render(){
   h.push('<div class="section"><div class="xray"><div class="crown"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="var(--teal)" stroke-width="2.4" stroke-linecap="round"><circle cx="11" cy="11" r="7"/><path d="M21 21l-4.3-4.3"/></svg>Raio-X da experiência de compra</div>'+
     '<h2>'+esc(L.nomeLoja)+' · <span class="plat">'+esc(L.perfil.segmento.nome)+'</span></h2><p>'+esc(resumo)+'</p>'+
     '<div class="xray-grid"><div class="gauge">'+gauge(L.score.total)+'<div class="gl"><b>'+L.score.total+'/100</b>experiência de<br/>compra hoje</div></div><div class="axes">'+eixos+'</div></div></div></div>');
+
+  /* tema atual da loja */
+  const ta=L.temaAtual||{};
+  let taHtml;
+  if(ta.nome){
+    taHtml='<div class="tematual"><div class="ti"><svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 9l9-6 9 6v11a1 1 0 0 1-1 1h-5v-7H9v7H4a1 1 0 0 1-1-1z"/></svg></div>'+
+      '<div class="tb"><span class="tl">Tema publicado na loja hoje</span><b>'+esc(ta.nome)+(ta.versao?' <span class="tv">v'+esc(ta.versao)+'</span>':'')+'</b>'+
+      (ta.ehTrayTheme?'<span class="tsrc yes">Tema da Loja de Temas Tray</span>':'<span class="tsrc">Não identificado no catálogo — pode ser personalizado ou de terceiros</span>')+'</div>'+
+      (ta.link?'<a class="tlink" href="'+esc(ta.link)+'" target="_blank" rel="noopener">'+(ta.ehTrayTheme?'Ver na loja de temas':'Buscar na loja de temas')+' →</a>':'')+'</div>';
+  } else {
+    taHtml='<div class="tematual none"><div class="ti"><svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 9l9-6 9 6v11a1 1 0 0 1-1 1h-5v-7H9v7H4a1 1 0 0 1-1-1z"/></svg></div>'+
+      '<div class="tb"><span class="tl">Tema publicado na loja hoje</span><b>Não identificado no código</b><span class="tsrc">Provável tema personalizado (sem a tag padrão dos temas Tray), ou a leitura não alcançou o header. As recomendações abaixo consideram só o que a loja exibe hoje.</span></div></div>';
+  }
+  h.push('<div class="section" style="margin-top:18px">'+taHtml+'</div>');
 
   /* o que está bom */
   if(state.fortes.length){ h.push('<div class="section"><div class="sec-title"><span class="kicker">1 · O que está bom</span><h2>Pontos fortes da loja hoje</h2></div><p class="sec-sub">Comece por aqui na conversa: reconhecer o que já funciona abre o cliente para ouvir o que pode melhorar.</p><div class="cards c2">'+
@@ -1112,7 +1234,13 @@ function render(){
    '<div class="card"><div class="ck">Meios de pagamento na vitrine</div>'+chipsHtml(L.exp.pagamentos)+'<div class="ck" style="margin-top:12px">Frete e entrega</div>'+chipsHtml(L.exp.frete)+'</div></div></div>');
 
   /* temas recomendados */
-  h.push('<div class="section"><div class="sec-title"><span class="kicker">7 · Temas recomendados</span><h2>3 temas certos para esta loja</h2></div><p class="sec-sub">Partindo do diagnóstico acima (segmento e experiência de navegação), a ferramenta pré-seleciona os candidatos, <b>abre a demonstração de cada um e analisa ao vivo</b> quais recursos o tema realmente entrega — e recomenda os que cobrem as lacunas da loja. O "match" reflete essa cobertura. Ainda assim, abra a demo com o lojista antes de fechar.</p><div class="cards c3">'+
+  const meta=state.temas.meta||{};
+  const taNome=meta.temaAtual&&meta.temaAtual.nome?meta.temaAtual.nome:'';
+  let subTemas;
+  if(taNome && meta.semUpgrade){ subTemas='A loja já usa o <b>'+esc(taNome)+'</b>, um dos temas mais completos do catálogo para este caso — <b>não encontramos um tema superior a ele</b>. As opções abaixo são o que há de mais próximo e servem apenas como alternativa de visual, não como ganho de recursos; o mais indicado aqui é ajustar a configuração do tema atual (ver "o que falta exibir").'; }
+  else if(taNome){ subTemas='Todas as opções abaixo são <b>upgrades em relação ao tema atual da loja ('+esc(taNome)+')</b> — nunca inferiores. A ferramenta abre a demonstração de cada candidato, analisa ao vivo o que ele entrega e confirma que ele adiciona recursos sem abrir mão do que a loja já tem. Abra a demo com o lojista antes de fechar.'; }
+  else { subTemas='Partindo do diagnóstico (segmento e experiência de navegação), a ferramenta abre a demonstração de cada candidato e <b>analisa ao vivo</b> o que ele entrega, priorizando os que cobrem as lacunas da loja sem regredir no que ela já exibe. Abra a demo com o lojista antes de fechar.'; }
+  h.push('<div class="section"><div class="sec-title"><span class="kicker">7 · Temas recomendados</span><h2>'+(taNome&&!meta.semUpgrade?'Upgrades de tema para esta loja':'3 temas certos para esta loja')+'</h2></div><p class="sec-sub">'+subTemas+'</p><div class="cards c3">'+
    state.temas.map(r=>temaCardHtml(r)).join('')+'</div></div>');
 
   /* argumentos */
@@ -1143,6 +1271,7 @@ function temaCardHtml(r){ const t=r.tema; const parcela=t.preco/12;
     ? '<div class="conf"><span class="cl">Confirmado na demo, cobre a lacuna da loja:</span><div class="ctags">'+r.confirmados.slice(0,4).map(c=>'<span class="ct yes">✓ '+esc(cap(c))+'</span>').join('')+'</div></div>'
     : (r.verificado && r.extrasDemo && r.extrasDemo.length ? '<div class="conf"><span class="cl">Confirmado na demo:</span><div class="ctags">'+r.extrasDemo.map(c=>'<span class="ct yes">✓ '+esc(cap(c))+'</span>').join('')+'</div></div>':'');
   return '<div class="theme '+(r.top?'top':'')+'">'+(r.top?'<span class="flag"><svg width="11" height="11" viewBox="0 0 24 24" fill="#fff"><path d="M3 7l4 4 5-7 5 7 4-4-2 12H5z"/></svg>Mais aderente</span>':'')+
+    (r.ehUpgrade?'<span class="flag up"><svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><path d="M12 19V5M5 12l7-7 7 7"/></svg>Upgrade</span>':'')+
     '<div class="thead"><div class="cat">'+esc(cap(t.seg==='geral'?'Versátil':(SEGMENTOS.find(s=>s.id===t.seg)||{}).nome||t.seg))+'</div><h3>'+esc(t.n)+'</h3><div class="dev">por '+esc(t.dev)+(t.dia?'<span class="pill">Diamante</span>':'')+'</div></div>'+
     '<div class="match">'+ringMatch(r.match)+'<div class="ml"><b>'+r.match+'% de aderência</b><span>ao caso desta loja</span></div></div>'+
     selo+
@@ -1159,6 +1288,8 @@ function buildSummary(){
   const L=state.loja,X=[];
   X.push('RAIO-X DE EXPERIÊNCIA + TEMA IDEAL — '+L.nomeLoja+' ('+L.host+')');
   X.push('Segmento: '+L.perfil.segmento.nome+' ('+L.perfil.segConf+') · porte '+L.perfil.porte+' · '+(L.perfil.produtos||'?')+' produtos'+(L.perfil.precos.ok?' · ticket ~'+brl(L.perfil.precos.mediana):''));
+  if(L.temaAtual&&L.temaAtual.nome){ X.push('Tema atual: '+L.temaAtual.nome+(L.temaAtual.versao?' v'+L.temaAtual.versao:'')+(L.temaAtual.ehTrayTheme?' (Loja de Temas Tray)':' (não identificado no catálogo)')+(L.temaAtual.link?' — '+L.temaAtual.link:'')); }
+  else { X.push('Tema atual: não identificado no código (provável personalizado)'); }
   X.push('Experiência de compra: '+L.score.total+'/100 ('+L.score.rotulo+')');
   X.push(''); X.push('PLACAR POR FRENTE'); L.score.eixos.forEach(e=>X.push('- '+e.nome+': '+e.valor+'/100'));
   X.push(''); X.push('O QUE ESTÁ BOM'); state.fortes.forEach(f=>X.push('+ '+f.titulo));
@@ -1183,11 +1314,28 @@ document.getElementById('v-go').addEventListener('click',()=>{
   vendedor={nome,fone}; closePdfModal();
   try{ generatePDF(); }catch(err){ alert('Não consegui gerar o PDF: '+(err.message||err)); }
 });
+function drawTrayLogo(doc,x,y,size){
+  const s=size/47, P=(a,b)=>[x+a*s,y+b*s];
+  const b1=P(27.5,16),b2=P(47.6,16),b3=P(41.7,30.2),b4=P(30,30.2);
+  doc.setFillColor(0,160,220);
+  doc.lines([[b2[0]-b1[0],b2[1]-b1[1]],[b3[0]-b2[0],b3[1]-b2[1]],[b4[0]-b3[0],b4[1]-b3[1]]],b1[0],b1[1],[1,1],'F',true);
+  doc.setDrawColor(255,255,255); doc.setLineWidth(4.3*s);
+  try{ doc.setLineCap('round'); doc.setLineJoin('round'); }catch(e){}
+  const cap=P(12,16.4),capR=P(16.6,16.4),vtx=P(26,31),leg=P(21.9,40.6),rArm=P(29.2,17.4);
+  doc.line(cap[0],cap[1],capR[0],capR[1]);
+  doc.line(capR[0],capR[1],vtx[0],vtx[1]);
+  doc.line(vtx[0],vtx[1],leg[0],leg[1]);
+  doc.line(rArm[0],rArm[1],vtx[0],vtx[1]);
+  doc.setFillColor(255,255,255);
+  const w1=P(23.7,42.7),w2=P(39,42.7);
+  doc.circle(w1[0],w1[1],2.5*s,'F'); doc.circle(w2[0],w2[1],2.5*s,'F');
+  try{ doc.setLineCap('butt'); doc.setLineJoin('miter'); }catch(e){}
+}
 function generatePDF(){
   const { jsPDF }=window.jspdf; const doc=new jsPDF({unit:'pt',format:'a4'});
   const L=state.loja, W=doc.internal.pageSize.getWidth(), H=doc.internal.pageSize.getHeight();
   const M=48; let y=0; let page=1;
-  const INK=[15,29,46], INK2=[61,79,98], MUT=[107,124,141], TEAL=[15,182,160], TEALD=[10,134,118], GOLD=[225,154,46], RED=[192,85,79], GREEN=[46,158,107], LINE=[228,234,240];
+  const INK=[0,1,42], INK2=[37,45,105], MUT=[107,119,160], TEAL=[0,160,220], TEALD=[37,81,160], GOLD=[37,45,105], RED=[192,85,79], GREEN=[46,158,107], LINE=[220,230,242];
   const setF=(s,st)=>doc.setFont('helvetica',st||'normal').setFontSize(s);
   const col=c=>doc.setTextColor(c[0],c[1],c[2]);
   function footer(){ setF(8,'normal'); col(MUT);
@@ -1201,18 +1349,21 @@ function generatePDF(){
   function secTitle(kick,titulo){ need(46); setF(8,'bold'); col(TEALD); doc.text(kick.toUpperCase(),M,y); y+=13; setF(15,'bold'); col(INK); doc.text(titulo,M,y); y+=8; doc.setDrawColor(TEAL[0],TEAL[1],TEAL[2]); doc.setLineWidth(2); doc.line(M,y,M+34,y); y+=18; }
 
   /* capa */
-  doc.setFillColor(15,29,46); doc.rect(0,0,W,250,'F');
-  doc.setFillColor(15,182,160); doc.circle(W-60,54,70,'F'); doc.setFillColor(15,29,46); doc.circle(W-42,40,70,'F');
-  setF(9,'bold'); col(TEAL); doc.text('RAIO-X DE EXPERIÊNCIA + TEMA IDEAL',M,92);
+  doc.setFillColor(0,1,42); doc.rect(0,0,W,250,'F');
+  doc.setFillColor(0,160,220); doc.circle(W-60,54,70,'F'); doc.setFillColor(0,1,42); doc.circle(W-42,40,70,'F');
+  /* logo Tray (símbolo carrinho-y) desenhado no canto */
+  drawTrayLogo(doc,M,42,20);
+  setF(9,'bold'); col([0,160,220]); doc.text('RAIO-X + TEMA IDEAL',M+58,50);
+  setF(8,'normal'); doc.setTextColor(143,166,201); doc.text('Loja de Temas Tray',M+58,63);
   setF(24,'bold'); doc.setTextColor(255,255,255);
-  doc.splitTextToSize(L.nomeLoja,W-2*M-120).forEach((ln,i)=>doc.text(ln,M,124+i*28));
-  setF(11,'normal'); doc.setTextColor(198,210,221);
-  doc.text(L.perfil.segmento.nome+'  ·  '+L.host,M,190);
+  doc.splitTextToSize(L.nomeLoja,W-2*M-120).forEach((ln,i)=>doc.text(ln,M,126+i*28));
+  setF(11,'normal'); doc.setTextColor(185,198,230);
+  doc.text(L.perfil.segmento.nome+'  ·  '+L.host,M,192);
   const hoje=new Date().toLocaleDateString('pt-BR',{day:'2-digit',month:'long',year:'numeric'});
-  doc.text('Análise da experiência de compra  ·  '+hoje,M,208);
+  doc.text('Análise da experiência de compra  ·  '+hoje,M,210);
   /* selo de score */
   const sx=W-M-96, sy=150; doc.setFillColor(255,255,255); doc.roundedRect(sx,sy-34,96,68,10,10,'F');
-  setF(26,'bold'); col(L.score.total>=70?TEAL:L.score.total>=45?GOLD:RED); doc.text(String(L.score.total),sx+48,sy+2,{align:'center'});
+  setF(26,'bold'); col(L.score.total>=70?TEAL:L.score.total>=45?[225,162,30]:RED); doc.text(String(L.score.total),sx+48,sy+2,{align:'center'});
   setF(8,'normal'); col(MUT); doc.text('de 100 · '+L.score.rotulo,sx+48,sy+18,{align:'center'});
   y=286;
 
@@ -1225,6 +1376,13 @@ function generatePDF(){
   kv('Produtos (aprox.)',L.perfil.produtos||'—',M+320);
   kv('Ticket aparente',L.perfil.precos.ok?brl(L.perfil.precos.mediana):'—',M+430);
   y+=76;
+  /* tema atual da loja */
+  const ta2=L.temaAtual||{};
+  setF(8,'bold'); col(MUT); doc.text('TEMA PUBLICADO HOJE',M,y); y+=14;
+  doc.setDrawColor(LINE[0],LINE[1],LINE[2]); doc.setFillColor(237,245,251); doc.roundedRect(M,y-4,W-2*M,40,8,8,'FD');
+  setF(12,'bold'); col(INK); doc.text(ta2.nome?String(ta2.nome).slice(0,48)+(ta2.versao?'  (v'+ta2.versao+')':''):'Não identificado no código (provável personalizado)',M+16,y+16);
+  setF(8.5,'normal'); col(TEALD); doc.text(ta2.nome?(ta2.ehTrayTheme?'Tema da Loja de Temas Tray · as recomendações abaixo são upgrades deste tema':'Não identificado no catálogo Tray · pode ser personalizado ou de terceiros'):'As recomendações abaixo consideram apenas o que a loja exibe hoje.',M+16,y+30);
+  y+=52;
   const fracas=L.score.eixos.filter(e=>e.valor<50).map(e=>e.nome.toLowerCase());
   const resumo='A experiência de compra da '+L.nomeLoja+' está '+L.score.rotulo+' ('+L.score.total+'/100). '+(fracas.length?'As frentes mais frágeis hoje: '+listPt(fracas)+'. ':'')+'Como a loja já roda na Tray, o caminho de maior impacto para converter mais é atualizar o tema — este documento aponta o que ajustar e os temas ideais para o caso.';
   wrap(resumo,10.5,'normal',INK2,15,M,W-2*M); y+=10;
