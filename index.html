@@ -363,7 +363,7 @@ function hashStr(s){ let h=0; s=String(s||''); for(let i=0;i<s.length;i++){ h=((
 /* ---------- 2. bases de conhecimento ---------- */
 /* 2.1 plataformas — aqui só para confirmar se a loja já é Tray (e avisar quando não é) */
 const PLATAFORMAS=[
- {id:'tray',nome:'Tray',rx:[/commercesuite\.com\.br/i,/tray\.com\.br/i,/traycommerce/i,/tray-cdn/i]},
+ {id:'tray',nome:'Tray',rx:[/commercesuite\.com\.br/i,/tray\.com\.br/i,/traycommerce/i,/tray-cdn/i,/tcdn\.com\.br/i,/store_themes/i,/data-app=["']product\./i,/data-app=["']cart["']/i,/produto-calcular-frete/i,/traycheckout/i,/\bbg-tone-\d/i]},
  {id:'shopify',nome:'Shopify',rx:[/cdn\.shopify\.com/i,/myshopify\.com/i,/Shopify\.theme/i,/shopify-features/i]},
  {id:'nuvemshop',nome:'Nuvemshop',rx:[/nuvemshop/i,/tiendanube/i,/mitiendanube\.com/i,/cdn\.nuvemshop/i]},
  {id:'lojaintegrada',nome:'Loja Integrada',rx:[/lojaintegrada/i,/awsli\.com\.br/i,/cdn\.awsli/i]},
@@ -393,7 +393,7 @@ function detectPlataforma(html,url){
    Cobre texto, campo de CEP, widget de frete da Tray e endpoints/scripts de simulação. */
 const FRETE_RX=/calcul\w*\s*(o\s*)?(frete|prazo)|simul\w*\s*(o\s*)?(frete|prazo|entrega)|calcule\s*o\s*frete|consult\w*\s*(o\s*)?(frete|prazo)|frete\s*e\s*prazo|prazo\s*e\s*frete|prazo\s*de\s*entrega|meios?\s*de\s*(envio|entrega)|op[çc][õo]es?\s*de\s*(frete|entrega)|(digite|informe|preencha|seu|calcule|qual\s*seu)\s*(o\s*)?cep|calcular[-_ ]?frete|frete[-_ ]?e[-_ ]?prazo|simulador[-_ ]?(de[-_ ]?)?frete|shipping[-_]?calc/i;
 /* sinais estruturais do widget de frete (campo/rota/script), independentes de texto visível */
-const FRETE_ESTRUT=/name=["'](cep|zipcode|zip|postal_?code|cep_?entrega|Cep)["']|id=["'](cep|Cep|cepConsulta|cep_frete|frete_cep|calcular_frete|calculo_frete|shipping-cep)["']|placeholder=["'][^"']*cep|data-cep|data-shipping|class=["'][^"']*(frete|shipping|cep|calculo-frete|shipping-calculator|freteprazo|frete-prazo)[^"']*["']|\/web_api\/[^"']*(price|shipping|frete)|\/loja\/(produto_frete|frete|calcular_frete)|calcularFrete|calcular_frete|simulaFrete|getShipping|shippingSimulator|freteSimulador/i;
+const FRETE_ESTRUT=/name=["'](cep|zipcode|zip|postal_?code|cep_?entrega|Cep)["']|id=["'](cep|Cep|cepConsulta|cep_frete|frete_cep|calcular_frete|calculo_frete|shipping-cep)["']|placeholder=["'][^"']*cep|data-cep|data-shipping|data-app=["']product\.zip|product-shipping|produto-calcular-frete|shipping-form|zip-?box|class=["'][^"']*(frete|shipping|cep|calculo-frete|shipping-calculator|freteprazo|frete-prazo)[^"']*["']|\/web_api\/[^"']*(price|shipping|frete)|\/loja\/(produto_frete|frete|calcular_frete)|calcularFrete|calcular_frete|simulaFrete|getShipping|shippingSimulator|freteSimulador/i;
 function temFrete(htmlAll){ return FRETE_RX.test(htmlAll) || FRETE_ESTRUT.test(htmlAll); }
 const FRETE_ALL=new RegExp(FRETE_RX.source+'|'+FRETE_ESTRUT.source,'i');
 
@@ -796,7 +796,7 @@ function analisarLoja(html,url,extras){
     filtros:/filtro|filtrar|refin|facet|ordenar por|smart-?filter|filtro-inteligente|sf-filter|data-filter|filtro-de-produtos/i.test(htmlAll),
     menuMobile:/menu-mobile|mobile-menu|hamburger|navbar-toggle|menu-hamb|drawer/i.test(htmlAll),
     submenu:/submenu|sub-menu|dropdown|megamenu|mega-menu/i.test(htmlAll),
-    carrinhoLateral:/carrinho-lateral|side-?cart|mini-?cart|cart-drawer/i.test(htmlAll),
+    carrinhoLateral:/carrinho[-_]?lateral|cart[-_]?drawer|drawer[-_]?cart|side[-_]?cart|cart[-_]?side\b|cart[-_]?sidebar|sidebar[-_]?cart|mini[-_]?cart|minicart|cart[-_]?preview|preview[-_]?cart|off-?canvas[^"']{0,20}cart|cart[^"']{0,20}off-?canvas|data-cart-drawer|js-cart-side|slide[-_]?cart|cart[-_]?slide|flyout[-_]?cart|cart[-_]?flyout|aside[-_]?cart|cart[-_]?aside/i.test(htmlAll),
     contaCliente:/minha conta|meus pedidos|entrar\b|login/i.test(htmlAll),
     itensMenu:[...new Set(navLinks.map(a=>(a.textContent||'').replace(/\s+/g,' ').trim()).filter(t=>t.length>2&&t.length<28))].slice(0,12),
     pagamentos:acharSinais(htmlAll,'pagamento'),
@@ -823,8 +823,9 @@ function analisarLoja(html,url,extras){
   /* sinais de conversão e confiança consolidados (home + produto) */
   const some=(arr,rx)=>arr.filter(x=>rx.test(x.nome)&&x.ok).length>0;
   const freteExplicito=some(L.exp.frete,/C[áa]lculo de frete/);
-  const freteNativoTray=(L.plataforma&&L.plataforma.ehTray)&&L.leuProduto; // cálculo de frete é recurso nativo da Tray na página do produto
-  L.convSig={ pix:some(L.exp.pagamentos,/Pix/), parcel:/\d{1,2}\s*x\s*(de\s*)?r\$|sem juros|parcel/i.test(htmlAll), freteCalc:(freteExplicito||freteNativoTray), freteInferido:(!freteExplicito&&freteNativoTray), freteGratis:some(L.exp.frete,/Frete gr[áa]tis/), prazo:some(L.exp.frete,/Prazo/), cupom:/cupom|c[óo]digo de desconto/i.test(htmlAll), checkoutInterno:!L.exp.checkoutExterno, relacionados:/relacionados|quem viu|voc[êe] tamb[ée]m|compre junto|leve junto|complete o look/i.test(htmlAll), urgencia:/[úu]ltimas unidades|estoque baixo|acaba em|oferta por tempo|restam \d|em alta/i.test(htmlAll), destaques:/mais vendidos|destaques|best ?sellers|em alta|queridinhos/i.test(htmlAll) };
+  const freteNativoTray=(L.plataforma&&L.plataforma.ehTray); // cálculo de frete é recurso nativo da Tray na página do produto (presente em praticamente todo tema)
+  const freteGratisRegua=/falta[m]?\s*(apenas|s[óo])?[^<>.]{0,30}(para|e\s*(ganhe|garanta))?[^<>.]{0,15}frete\s*gr[áa]tis|(adicione|adicionando|compre)\s*(mais\s*)?[^<>.]{0,30}(para|e\s*ganh)[^<>.]{0,15}frete\s*gr[áa]tis|restam?\s*(apenas\s*)?r?\$?\s*[\d.,]+[^<>.]{0,25}frete\s*gr[áa]tis/i.test(htmlAll);
+  L.convSig={ pix:some(L.exp.pagamentos,/Pix/), parcel:/\d{1,2}\s*x\s*(de\s*)?r\$|sem juros|parcel/i.test(htmlAll), freteCalc:(freteExplicito||freteNativoTray), freteInferido:(!freteExplicito&&freteNativoTray), freteGratisRegua:freteGratisRegua, freteGratis:some(L.exp.frete,/Frete gr[áa]tis/)||freteGratisRegua, prazo:some(L.exp.frete,/Prazo/), cupom:/cupom|c[óo]digo de desconto/i.test(htmlAll), checkoutInterno:!L.exp.checkoutExterno, relacionados:/relacionados|quem viu|voc[êe] tamb[ée]m|compre junto|leve junto|complete o look/i.test(htmlAll), urgencia:/[úu]ltimas unidades|estoque baixo|acaba em|oferta por tempo|restam \d|em alta/i.test(htmlAll), destaques:/mais vendidos|destaques|best ?sellers|em alta|queridinhos/i.test(htmlAll) };
   L.trustSig={ avaliacoes:some(L.mkt.prova,/Avalia/), depoimentos:some(L.mkt.prova,/Depoiment/), selo:some(L.mkt.prova,/Selo/), reclameAqui:some(L.mkt.prova,/Reclame/), cnpj:some(L.mkt.prova,/CNPJ/), politicaTroca:some(L.mkt.prova,/troca/i), atendimento:L.mkt.atendimento.some(a=>a.ok), whatsapp:some(L.mkt.atendimento,/WhatsApp/) };
   /* perfil e segmento */
   const catsTxt=[...dom.querySelectorAll('nav a,header a,[class*="menu"] a,[class*="categor"] a,[class*="breadcrumb"] a')].map(a=>(a.textContent||'').replace(/\s+/g,' ').trim()).filter(t=>t.length>1&&t.length<40).join(' ');
@@ -839,7 +840,22 @@ function analisarLoja(html,url,extras){
     ticket: pr.ok? (pr.mediana<80?'baixo':pr.mediana<300?'médio':pr.mediana<1000?'alto':'muito alto'):'não estimado'};
   /* recursos essenciais (base + do segmento) que faltam exibir */
   const lista=RECURSOS_BASE.map(r=>Object.assign({_seg:false},r)).concat((L.perfil.segmento.extras||[]).map(r=>Object.assign({_seg:true,n:r.n,foco:r.foco,porque:r.porque,rx:null},r)));
-  L.recursos=lista.map(r=>({nome:r.n,foco:r.foco,porque:r.porque,seg:!!r._seg, estado: !r.rx? (segRecPresente(html,r.n)?'sim':'checar') : (r.rx.test(html)?'sim':'nao')}));
+  L.recursos=lista.map(r=>{
+    let estado = !r.rx ? (segRecPresente(htmlAll,r.n)?'sim':'checar') : (r.rx.test(htmlAll)?'sim':'nao');
+    const n=norm(r.n); // reconcilia com os sinais já detectados (mais confiáveis que a regex crua)
+    if(/frete/.test(n)&&/(calculo|antes do carrinho|por cep)/.test(n)) estado=L.convSig.freteCalc?'sim':estado;
+    else if(/frete gr[aá]tis/.test(n)) estado=L.convSig.freteGratis?'sim':estado;
+    if(/\bpix\b/.test(n)) estado=L.convSig.pix?'sim':estado;
+    if(/parcel/.test(n)) estado=L.convSig.parcel?'sim':estado;
+    if(/avalia/.test(n)) estado=L.trustSig.avaliacoes?'sim':estado;
+    if(/busca/.test(n)) estado=L.exp.busca?'sim':estado;
+    if(/filtro/.test(n)) estado=L.exp.filtros?'sim':estado;
+    if(/relacionad|compre junto/.test(n)) estado=L.convSig.relacionados?'sim':estado;
+    if(/mais vendidos|destaque/.test(n)) estado=L.convSig.destaques?'sim':estado;
+    if(/whatsapp/.test(n)) estado=L.trustSig.whatsapp?'sim':estado;
+    if(/selo|pol[íi]tica|seguran/.test(n)) estado=(L.trustSig.selo||L.trustSig.politicaTroca||L.trustSig.reclameAqui)?'sim':estado;
+    return {nome:r.n,foco:r.foco,porque:r.porque,seg:!!r._seg,estado};
+  });
   L.score=montarScore(L);
   return L;
 }
@@ -871,12 +887,14 @@ function montarFortes(L){
   if(c.pix&&c.parcel) add('Pix e parcelamento à mostra','Pix e parcelamento aparecem na loja — os dois meios preferidos do brasileiro, com 88% de escolha cada.');
   if(c.freteCalc) add('Frete calculado antes do carrinho','O cliente vê o frete antes de finalizar — evita a surpresa que faz 47% abandonarem no checkout.');
   if(c.freteGratis) add('Regra de frete grátis','Há frete grátis sinalizado, um dos gatilhos mais fortes para subir o ticket médio.');
+  if(c.freteGratisRegua) add('Régua de frete grátis no carrinho','A loja mostra quanto falta para o frete grátis ("Falta R$ X…") — um empurrão direto no ticket médio a cada item adicionado.');
+  if(e.carrinhoLateral) add('Carrinho lateral (mini-cart)','Ao adicionar um produto, a loja abre uma prévia lateral do carrinho — o cliente continua comprando sem sair da página, o que reduz o abandono.');
   if(t.avaliacoes) add('Prova social presente','A loja exibe avaliações — 64% dos consumidores checam avaliações antes de comprar em loja que não conhecem.');
   if(t.reclameAqui||t.selo||t.cnpj) add('Sinais de confiança visíveis','Há selos, CNPJ ou Reclame Aqui à mostra, o que reduz o receio de fraude (93% já desistiram por esse medo).');
   if(t.whatsapp) add('Atendimento por WhatsApp','O WhatsApp está na loja — canal onde boa parte da dúvida vira venda no Brasil.');
   if(c.relacionados) add('Produtos relacionados na página','A loja sugere itens relacionados, o que puxa mais de um produto por pedido.');
   if(s.blog) add('Conteúdo próprio / blog','Há conteúdo próprio, que alimenta o tráfego orgânico e sustenta a venda quando a verba de anúncio cai.');
-  return F.slice(0,6);
+  return F.slice(0,8);
 }
 function montarFracos(L){
   const D=[]; const B=BENCHMARKS;
