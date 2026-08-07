@@ -1288,13 +1288,9 @@ function render(){
     (fbase.length?'<div class="falta-grp"><div class="fgh"><span class="fgtag base">Essenciais de e-commerce</span><span class="fgd">Recursos que qualquer loja precisa exibir.</span></div><div class="falta-list">'+fbase.map(item).join('')+'</div></div>':'')+
     '</div></div>'); }
 
-  /* onde a conversão pode melhorar */
-  h.push('<div class="section"><div class="sec-title"><span class="kicker">4 · Onde a conversão pode melhorar</span><h2>Recomendações práticas</h2></div><p class="sec-sub">Ações concretas, na ordem de impacto, ligadas às lacunas encontradas na loja.</p><div class="cards c2">'+
-   state.melhorias.map((m,i)=>'<div class="imp"><div class="n">'+(i+1)+'</div><div class="bd"><h4>'+esc(m.titulo)+'</h4><p>'+esc(m.txt)+'</p></div></div>').join('')+'</div></div>');
-
   /* perfil e segmento */
   const pr=L.perfil.precos;
-  h.push('<div class="section"><div class="sec-title"><span class="kicker">5 · Perfil e segmento</span><h2>Como a loja se posiciona</h2></div><p class="sec-sub">A base da recomendação de tema: o segmento detectado e o porte da operação.</p><div class="cards c3">'+
+  h.push('<div class="section"><div class="sec-title"><span class="kicker">4 · Perfil e segmento</span><h2>Como a loja se posiciona</h2></div><p class="sec-sub">A base da recomendação de tema: o segmento detectado e o porte da operação.</p><div class="cards c3">'+
    '<div class="card"><div class="ck">Segmento</div><h4>'+esc(L.perfil.segmento.nome)+'</h4><div class="kv" style="margin-top:10px"><div class="line"><span class="k">Confiança</span><span class="v">'+esc(L.perfil.segConf)+'</span></div>'+(L.perfil.segEv?'<div class="line"><span class="k">Sinais</span><span class="v">'+esc(L.perfil.segEv)+'</span></div>':'')+'<div class="line"><span class="k">Perfil típico</span><span class="v">'+esc(L.perfil.segmento.perfil)+'</span></div></div></div>'+
    '<div class="card"><div class="ck">Porte e catálogo</div><h4>'+cap(L.perfil.porte)+'</h4><div class="kv" style="margin-top:10px"><div class="line"><span class="k">Produtos'+(L.seo.produtosFonte==='sitemap'?' (sitemap)':' (home)')+'</span><span class="v">'+(L.perfil.produtos||'—')+'</span></div><div class="line"><span class="k">Categorias</span><span class="v">'+(L.seo.categoriasEstimadas||'—')+'</span></div><div class="line"><span class="k">Ticket aparente</span><span class="v">'+(pr.ok?brl(pr.mediana)+' ('+L.perfil.ticket+')':L.perfil.ticket)+'</span></div></div></div>'+
    '<div class="card"><div class="ck">Meios de pagamento na vitrine</div>'+chipsHtml(L.exp.pagamentos)+'<div class="ck" style="margin-top:12px">Frete e entrega</div>'+chipsHtml(L.exp.frete)+'</div></div></div>');
@@ -1306,13 +1302,17 @@ function render(){
   if(taNome && meta.semUpgrade){ subTemas='A loja já usa o <b>'+esc(taNome)+'</b>, um dos temas mais completos do catálogo para este caso — <b>não encontramos um tema superior a ele</b>. As opções abaixo são o que há de mais próximo e servem apenas como alternativa de visual, não como ganho de recursos; o mais indicado aqui é ajustar a configuração do tema atual (ver "o que falta exibir").'; }
   else if(taNome){ subTemas='Todas as opções abaixo são <b>upgrades reais em relação ao tema atual ('+esc(taNome)+')</b> — nunca inferiores. A ferramenta lê a <b>ficha oficial de recursos</b> de cada tema na loja de temas (a contagem "X de 125 recursos da Tray"), compara com a do tema atual e só recomenda os que têm mais recursos e resolvem lacunas que o tema atual não resolve.'; }
   else { subTemas='Partindo do diagnóstico, a ferramenta lê a <b>ficha oficial de recursos</b> de cada tema na loja de temas Tray e prioriza os que cobrem as lacunas da loja. A contagem "X de 125 recursos" vem direto da página oficial do tema.'; }
-  h.push('<div class="section"><div class="sec-title"><span class="kicker">6 · Temas recomendados</span><h2>'+(taNome&&!meta.semUpgrade?'Upgrades de tema para esta loja':'3 temas certos para esta loja')+'</h2></div><p class="sec-sub">'+subTemas+'</p><div class="cards c3">'+
+  h.push('<div class="section"><div class="sec-title"><span class="kicker">5 · Temas recomendados</span><h2>'+(taNome&&!meta.semUpgrade?'Upgrades de tema para esta loja':'3 temas certos para esta loja')+'</h2></div><p class="sec-sub">'+subTemas+'</p><div class="cards c3">'+
    state.temas.map(r=>temaCardHtml(r)).join('')+'</div></div>');
 
-  /* dados de mercado (posição 7 — logo antes dos argumentos) */
+  /* dados de mercado (posição 6) */
   const bmKeys=['abandono','frete','mobile','avaliacoes','fraude','checkout'];
-  h.push('<div class="section"><div class="sec-title"><span class="kicker">7 · Dados de mercado</span><h2>Como a boa experiência vira venda</h2></div><p class="sec-sub">Referências públicas de e-commerce para embasar o discurso na hora de argumentar. Use os números que conversam com as lacunas desta loja.</p><div class="bench">'+
+  h.push('<div class="section"><div class="sec-title"><span class="kicker">6 · Dados de mercado</span><h2>Como a boa experiência vira venda</h2></div><p class="sec-sub">Referências públicas de e-commerce para embasar o discurso na hora de argumentar. Use os números que conversam com as lacunas desta loja.</p><div class="bench">'+
    bmKeys.map(k=>{const b=BENCHMARKS[k];return '<div class="bmc"><div class="num">'+esc(b.num)+'</div><p>'+esc(cap(b.txt))+'.</p><div class="src">'+esc(b.fonte)+'</div></div>';}).join('')+'</div></div>');
+
+  /* onde a conversão pode melhorar (posição 7 — logo após os dados de mercado) */
+  h.push('<div class="section"><div class="sec-title"><span class="kicker">7 · Onde a conversão pode melhorar</span><h2>Recomendações práticas</h2></div><p class="sec-sub">Ações concretas, na ordem de impacto, ligadas às lacunas encontradas e aos dados de mercado acima.</p><div class="cards c2">'+
+   state.melhorias.map((m,i)=>'<div class="imp"><div class="n">'+(i+1)+'</div><div class="bd"><h4>'+esc(m.titulo)+'</h4><p>'+esc(m.txt)+'</p></div></div>').join('')+'</div></div>');
 
   /* argumentos */
   const A=state.args;
