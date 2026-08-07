@@ -196,6 +196,9 @@
   .theme .conf .ctags{display:flex;flex-wrap:wrap;gap:5px}
   .theme .conf .ct{font-size:11px;font-weight:600;padding:3px 8px;border-radius:999px}
   .theme .conf .ct.yes{background:var(--teal-soft);color:var(--teal-deep);border:1px solid #BCE9E0}
+  .theme .conf.up{background:var(--green-soft);border-color:var(--green-line)}
+  .theme .conf.up .cl{color:var(--green)}
+  .theme .conf .ct.up{background:#fff;color:var(--green);border:1px solid var(--green-line);font-weight:700}
   .theme .flag.up{left:auto;right:12px;background:var(--teal)}
   .theme .price{display:flex;align-items:baseline;justify-content:space-between;gap:10px;border-top:1px dashed var(--line);padding-top:12px}
   .theme .price .p{font-family:'Satoshi';font-size:19px;font-weight:600;color:var(--ink)}
@@ -651,17 +654,20 @@ function detectarTemaAtual(htmlAll){
   const mv=htmlAll.match(/data-(?:tray-)?theme-version\s*=\s*["']([^"']{1,20})["']/i); if(mv) out.versao=mv[1].trim();
   return out;
 }
-/* casa o nome lido com o catálogo da loja de temas (exato -> prefixo -> sobreposição de tokens) */
+/* casa o nome lido com o catálogo — retorna {tema, conf} para o link só ser usado com alta confiança */
 function acharTemaCatalogo(nome){
   if(!nome) return null; const n=norm(nome);
-  let hit=CATALOGO_TEMAS.find(t=>norm(t.n)===n); if(hit) return hit;
-  hit=CATALOGO_TEMAS.find(t=>{const tn=norm(t.n); return tn.startsWith(n)||n.startsWith(tn);}); if(hit) return hit;
-  const nt=new Set(n.split(/[\s-]+/).filter(w=>w.length>2));
+  let hit=CATALOGO_TEMAS.find(t=>norm(t.n)===n); if(hit) return {tema:hit,conf:'exata'};
+  const cands=CATALOGO_TEMAS.filter(t=>{const tn=norm(t.n); return tn.startsWith(n)||n.startsWith(tn);});
+  if(cands.length===1){ const tn=norm(cands[0].n); const ratio=Math.min(n.length,tn.length)/Math.max(n.length,tn.length); if(ratio>=0.7) return {tema:cands[0],conf:'alta'}; }
+  const nt=new Set(n.split(/[\s-]+/).filter(w=>w.length>2)); const primeiro=(n.split(/[\s-]+/)[0]||'');
   let best=null,bestSc=0;
-  CATALOGO_TEMAS.forEach(t=>{ const tt=norm(t.n).split(/[\s-]+/).filter(w=>w.length>2); if(!tt.length) return;
-    const ov=tt.filter(w=>nt.has(w)).length; const sc=ov/Math.max(tt.length,nt.size);
+  CATALOGO_TEMAS.forEach(t=>{ const tw=norm(t.n).split(/[\s-]+/).filter(w=>w.length>2); if(!tw.length) return;
+    if(tw[0]!==primeiro) return; // exige a mesma família (primeira palavra) para evitar link errado
+    const ov=tw.filter(w=>nt.has(w)).length; const sc=ov/Math.max(tw.length,nt.size);
     if(sc>bestSc){bestSc=sc;best=t;} });
-  return bestSc>=0.5?best:null;
+  if(best&&bestSc>=0.7) return {tema:best,conf:'media'};
+  return null;
 }
 /* acha vários links de produto (para ler o frete/avaliações em mais de uma página) */
 function acharLinksProduto(html,origin,max){
@@ -752,11 +758,15 @@ function analisarLoja(html,url,extras){
   L.leuProduto=!!htmlP;
   /* tema publicado na loja (lido do header do tema Tray) */
   const ta=detectarTemaAtual(htmlAll);
-  const taCat=acharTemaCatalogo(ta.nome);
-  L.temaAtual={ nome: ta.nome||'', versao: ta.versao||'', catalogo: taCat||null,
+  const taM=acharTemaCatalogo(ta.nome);
+  const taCat=taM?taM.tema:null;
+  const confiavel=taM&&(taM.conf==='exata'||taM.conf==='alta'); // só linka direto na página quando o casamento é confiável
+  const buscaLink = ta.nome? 'https://temas.tray.com.br/busca?q='+encodeURIComponent(ta.nome):'';
+  L.temaAtual={ nome: ta.nome||'', versao: ta.versao||'', catalogo: taCat||null, matchConf: taM?taM.conf:'',
     ehTrayTheme: !!taCat, nivel: nivelTema(taCat),
-    link: taCat? taCat.url : (ta.nome? 'https://temas.tray.com.br/busca?q='+encodeURIComponent(ta.nome):''),
-    buscaLink: ta.nome? 'https://temas.tray.com.br/busca?q='+encodeURIComponent(ta.nome):'' };
+    link: (confiavel&&taCat)? taCat.url : buscaLink,
+    linkTipo: (confiavel&&taCat)? 'tema':'busca',
+    buscaLink };
 
   /* estrutura e experiência de compra */
   const links=[...dom.querySelectorAll('a[href]')];
@@ -792,7 +802,9 @@ function analisarLoja(html,url,extras){
   L.mkt={analytics:acharSinais(html,'analytics'),atendimento:acharSinais(htmlAll,'atendimento'),prova:acharSinais(htmlAll,'prova'),canais:acharSinais(htmlAll,'canais')};
   /* sinais de conversão e confiança consolidados (home + produto) */
   const some=(arr,rx)=>arr.filter(x=>rx.test(x.nome)&&x.ok).length>0;
-  L.convSig={ pix:some(L.exp.pagamentos,/Pix/), parcel:/\d{1,2}\s*x\s*(de\s*)?r\$|sem juros|parcel/i.test(htmlAll), freteCalc:some(L.exp.frete,/C[áa]lculo de frete/), freteGratis:some(L.exp.frete,/Frete gr[áa]tis/), prazo:some(L.exp.frete,/Prazo/), cupom:/cupom|c[óo]digo de desconto/i.test(htmlAll), checkoutInterno:!L.exp.checkoutExterno, relacionados:/relacionados|quem viu|voc[êe] tamb[ée]m|compre junto|leve junto|complete o look/i.test(htmlAll), urgencia:/[úu]ltimas unidades|estoque baixo|acaba em|oferta por tempo|restam \d|em alta/i.test(htmlAll), destaques:/mais vendidos|destaques|best ?sellers|em alta|queridinhos/i.test(htmlAll) };
+  const freteExplicito=some(L.exp.frete,/C[áa]lculo de frete/);
+  const freteNativoTray=(L.plataforma&&L.plataforma.ehTray)&&L.leuProduto; // cálculo de frete é recurso nativo da Tray na página do produto
+  L.convSig={ pix:some(L.exp.pagamentos,/Pix/), parcel:/\d{1,2}\s*x\s*(de\s*)?r\$|sem juros|parcel/i.test(htmlAll), freteCalc:(freteExplicito||freteNativoTray), freteInferido:(!freteExplicito&&freteNativoTray), freteGratis:some(L.exp.frete,/Frete gr[áa]tis/), prazo:some(L.exp.frete,/Prazo/), cupom:/cupom|c[óo]digo de desconto/i.test(htmlAll), checkoutInterno:!L.exp.checkoutExterno, relacionados:/relacionados|quem viu|voc[êe] tamb[ée]m|compre junto|leve junto|complete o look/i.test(htmlAll), urgencia:/[úu]ltimas unidades|estoque baixo|acaba em|oferta por tempo|restam \d|em alta/i.test(htmlAll), destaques:/mais vendidos|destaques|best ?sellers|em alta|queridinhos/i.test(htmlAll) };
   L.trustSig={ avaliacoes:some(L.mkt.prova,/Avalia/), depoimentos:some(L.mkt.prova,/Depoiment/), selo:some(L.mkt.prova,/Selo/), reclameAqui:some(L.mkt.prova,/Reclame/), cnpj:some(L.mkt.prova,/CNPJ/), politicaTroca:some(L.mkt.prova,/troca/i), atendimento:L.mkt.atendimento.some(a=>a.ok), whatsapp:some(L.mkt.atendimento,/WhatsApp/) };
   /* perfil e segmento */
   const catsTxt=[...dom.querySelectorAll('nav a,header a,[class*="menu"] a,[class*="categor"] a,[class*="breadcrumb"] a')].map(a=>(a.textContent||'').replace(/\s+/g,' ').trim()).filter(t=>t.length>1&&t.length<40).join(' ');
@@ -914,7 +926,7 @@ function scoreTema(tema,needs,L){
   sc+= (hashStr(L.host+'|'+tema.n)%5)*0.25; // desempate estável, varia por loja
   return sc;
 }
-/* lacunas da loja que um tema PODE cobrir — priorizando navegação e experiência */
+/* lacunas da loja que um TEMA pode cobrir (recursos de tema; pagamento não entra aqui pois é config da loja) */
 function lacunasLoja(L){
   const p=L.perfil.produtos||0;
   return {
@@ -923,128 +935,140 @@ function lacunasLoja(L){
     submenu: !L.exp.submenu,
     avaliacoes: !L.trustSig.avaliacoes,
     freteProduto: !L.convSig.freteCalc,
-    pix: !L.convSig.pix,
     relacionados: !L.convSig.relacionados,
     destaques: !L.convSig.destaques,
-    mobile: !L.tec.viewport || L.tec.velocidade==='lenta',
     zoom: ['joias','moda','casa','beleza'].includes(L.perfil.segmento.id),
     vitrines: (L.score.eixos.find(e=>e.nome==='Navegação e descoberta')||{}).valor<50
   };
 }
-const CAP_ROTULO={busca:'busca com sugestão',filtros:'filtros por categoria e atributo',submenu:'menu com submenus',avaliacoes:'avaliações de clientes no produto',freteProduto:'cálculo de frete na página do produto',pix:'Pix em destaque',parcelamento:'parcelamento visível',relacionados:'blocos de compre junto / relacionados',destaques:'vitrines de mais vendidos',mobile:'layout mobile-first e leve',zoom:'zoom nas fotos do produto',vitrines:'vitrines e banners na home'};
-function capCobre(cap,g){ if(g==='mobile') return !!(cap.mobile); if(g==='vitrines') return !!(cap.vitrines||cap.destaques); return !!cap[g]; }
+const CAP_ROTULO={busca:'busca com sugestão',filtros:'filtro inteligente',submenu:'menu com submenus',avaliacoes:'avaliações no produto',freteProduto:'cálculo de frete no produto',relacionados:'compre junto / relacionados',destaques:'vitrine de mais vendidos',zoom:'zoom / quickview no produto',vitrines:'vitrines e banners na home',compreJunto:'compre junto',tabelaMedidas:'tabela de medidas',carrinhoLateral:'carrinho lateral'};
+function capCobre(cap,g){ if(g==='vitrines') return !!(cap.vitrines||cap.destaques); if(g==='zoom') return !!(cap.zoom||cap.quickview); return !!cap[g]; }
 
-/* analisa AO VIVO a demonstração do tema (home + uma página de produto da demo) */
-async function analisarTema(tema){
-  const cap={verificado:false,erro:'',busca:false,filtros:false,submenu:false,avaliacoes:false,freteProduto:false,pix:false,parcelamento:false,relacionados:false,destaques:false,vitrines:false,zoom:false,mobile:false,rapido:false,newsletter:false,redes:false};
+/* lê a FICHA OFICIAL do tema (página em temas.tray.com.br) — fonte mais confiável que a demo:
+   traz a lista de recursos suportados e a contagem "X de 125 recursos da Tray". */
+function parseTemaPagina(html){
+  const H=html||''; const rec={};
+  const has=rx=>rx.test(H);
+  rec.freteProduto=has(/c[áa]lculo de frete na p[áa]gina do produto/i);
+  rec.avaliacoes=has(/estrelas de avalia[çc][ãa]o do produto|coment[áa]rios na p[áa]gina do produto|avalia[çc][ãa]o do produto/i);
+  rec.filtros=has(/filtro inteligente/i);
+  rec.busca=has(/sugest[õo]es de busca/i);
+  rec.relacionados=has(/produtos relacionados/i);
+  rec.compreJunto=has(/compre junto/i);
+  rec.destaques=has(/vitrine de mais vendidos|vitrine de destaques/i);
+  rec.vitrines=has(/vitrine de (destaques|lan[çc]amentos|promo[çc][õo]es|mais vendidos)|exibi[çc][ãa]o de vitrine/i);
+  rec.submenu=has(/menu com sub-?categorias|produto no submenu|sub-categorias at[ée]/i);
+  rec.quickview=has(/quickview|visualiza[çc][ãa]o r[áa]pida|compra r[áa]pida/i);
+  rec.zoom=has(/zoom|ampliar imagem|segunda imagem do produto/i);
+  rec.tabelaMedidas=has(/tabela de medidas/i);
+  rec.carrinhoLateral=has(/carrinho lateral/i);
+  rec.mobile=has(/responsivo/i);
+  rec.newsletter=has(/popup de newsletter|bloco de newsletter/i);
+  rec.kit=has(/kit de produtos/i);
+  const mc=H.match(/suporte\s*[àa]\s*\**\s*(\d{1,3})\s*\**\s*de\s*\**\s*125/i);
+  rec.count=mc?parseInt(mc[1],10):null;
+  const cn=H.match(/canonical:\s*(https?:\/\/[^\s]+)/i)||H.match(/og:url:\s*(https?:\/\/[^\s]+)/i);
+  rec.canonical=cn?cn[1].trim():'';
+  return rec;
+}
+async function analisarTemaPagina(tema){
+  const cap={verificado:false,erro:'',count:null,url:tema.url,demo:tema.demo,
+    busca:false,filtros:false,submenu:false,avaliacoes:false,freteProduto:false,relacionados:false,compreJunto:false,destaques:false,vitrines:false,zoom:false,quickview:false,tabelaMedidas:false,carrinhoLateral:false,mobile:false};
   try{
-    const home=await fetchText(tema.demo,13000);
-    let prod=''; const org=originOf(tema.demo)||tema.demo;
-    const purl=acharLinkProduto(home,org);
-    if(purl){ try{ prod=await fetchText(purl,11000); }catch(e){} }
-    const H=home+'\n'+prod;
-    cap.busca=/type=["']search|name=["']q["']|placeholder=["'][^"']*(buscar|pesquis)|autocomplete|typeahead/i.test(H);
-    cap.filtros=/filtro|filtrar|refine|facet|ordenar por/i.test(H);
-    cap.submenu=/submenu|sub-menu|dropdown|megamenu|mega-menu/i.test(H);
-    cap.avaliacoes=/trustvox|yourviews|avalia[çc][õo]es|review|estrelas|nota m[ée]dia|opini[õa]o de quem/i.test(H);
-    cap.freteProduto=temFrete(H);
-    cap.pix=/\bpix\b/i.test(H);
-    cap.parcelamento=/\d{1,2}\s*x\s*(de\s*)?r\$|sem juros|parcel/i.test(H);
-    cap.relacionados=/relacionados|quem viu|voc[êe] tamb[ée]m|compre junto|leve junto|complete o look/i.test(H);
-    cap.destaques=/mais vendidos|destaques|best ?sellers|em alta|lan[çc]amentos|queridinhos/i.test(H);
-    cap.vitrines=/vitrine|carrossel|carousel|banner|showcase|slick|swiper/i.test(H);
-    cap.zoom=/zoom|magnif|lightbox|ampliar imagem|image-zoom/i.test(H);
-    cap.newsletter=/newsletter|cadastre.{0,8}e-?mail|receba.{0,12}novidades|assine.{0,10}novidades/i.test(H);
-    cap.redes=/instagram\.com|facebook\.com|tiktok\.com/i.test(H);
-    cap.mobile=/name=["']viewport["']/i.test(home);
-    const scripts=(home.match(/<script\b/gi)||[]).length, kb=Math.round(home.length/1024);
-    cap.rapido=kb<550&&scripts<32; if(cap.rapido) cap.mobile=cap.mobile||true;
-    cap.leuProduto=!!prod; cap.verificado=true;
-  }catch(e){ cap.erro=(e&&e.message)||'demo não carregou'; }
+    const html=await fetchText(tema.url,14000);
+    const rec=parseTemaPagina(html);
+    Object.assign(cap,rec);
+    // relacionados verdadeiro se produtos relacionados OU compre junto
+    cap.relacionados=!!(rec.relacionados||rec.compreJunto);
+    if(rec.canonical) cap.url=rec.canonical;
+    cap.verificado=true;
+  }catch(e){ cap.erro=(e&&e.message)||'ficha do tema não carregou'; }
   return cap;
 }
 
 async function recomendarTemas(L,onStep){
   const segKey=TEMA_MAP_SEG[L.perfil.segmento.id]||'geral';
-  const atualId=L.temaAtual&&L.temaAtual.catalogo?norm(L.temaAtual.catalogo.n):(L.temaAtual&&L.temaAtual.nome?norm(L.temaAtual.nome):'');
-  const ehAtual=t=>atualId && (norm(t.n)===atualId || (L.temaAtual.catalogo&&t.url===L.temaAtual.catalogo.url));
+  const conf=L.temaAtual&&L.temaAtual.matchConf;
+  const atualCat=(L.temaAtual&&L.temaAtual.catalogo&&(conf==='exata'||conf==='alta'))?L.temaAtual.catalogo:null;
+  const atualId=atualCat?norm(atualCat.n):(L.temaAtual&&L.temaAtual.nome?norm(L.temaAtual.nome):'');
+  const ehAtual=t=>atualId && (norm(t.n)===atualId || (atualCat&&t.url===atualCat.url));
   let pool=CATALOGO_TEMAS.filter(t=>t.seg===segKey && !ehAtual(t));
   const complementar=CATALOGO_TEMAS.filter(t=>t.seg==='geral'&&t.seg!==segKey&&!ehAtual(t));
   if(pool.length<5) pool=pool.concat(complementar);
   const needs=calcNeeds(L);
-  const nivelAtual=(L.temaAtual&&L.temaAtual.nivel)||0;
-  // capacidades que o tema ATUAL já entrega (lidas da própria loja) — para não sugerir regressão
-  const storeCaps={ busca:L.exp.busca, filtros:L.exp.filtros, submenu:L.exp.submenu, avaliacoes:L.trustSig.avaliacoes, freteProduto:L.convSig.freteCalc, pix:L.convSig.pix, relacionados:L.convSig.relacionados, destaques:L.convSig.destaques, mobile:(L.tec.viewport&&L.tec.velocidade!=='lenta') };
-  const cmpKeys=Object.keys(storeCaps);
-  // 1) pré-seleção pelo perfil — só temas de nível >= ao atual entram (nunca inferiores)
-  let ranked=pool.map(t=>({t,pre:scoreTema(t,needs,L),niv:nivelTema(t)}))
-    .filter(r=>r.niv>=nivelAtual-0.01)
-    .sort((a,b)=>b.pre-a.pre);
-  if(ranked.length<3) ranked=pool.map(t=>({t,pre:scoreTema(t,needs,L),niv:nivelTema(t)})).sort((a,b)=>b.pre-a.pre); // salvaguarda
-  const shortlist=ranked.slice(0,Math.min(6,ranked.length));
-  // 2) abre e analisa a demonstração de cada candidato AO VIVO
-  if(onStep) onStep('Abrindo e analisando '+shortlist.length+' demonstrações de temas ao vivo…');
-  const caps=await Promise.all(shortlist.map(async r=>({r,cap:await analisarTema(r.t)})));
-  // 3) pontua pela cobertura REAL das lacunas + marca regressão e nível
+  const nivelAtualH=(L.temaAtual&&L.temaAtual.nivel)||0; // heurístico (fallback)
   const lac=lacunasLoja(L); const gaps=Object.keys(lac).filter(k=>lac[k]);
-  const avaliados=caps.map(({r,cap})=>{
-    const cobertas=gaps.filter(g=>capCobre(cap,g));
-    const faltantesNaDemo=gaps.filter(g=>!capCobre(cap,g));
-    // regressão: a demo (verificada) NÃO tem algo que a loja já tem hoje
-    const regride = cap.verificado ? cmpKeys.filter(k=>storeCaps[k]===true && cap[k]===false) : [];
-    const upgrade = (r.niv>=nivelAtual-0.01) && ((cobertas.length>0) || (r.niv>nivelAtual));
-    let sc = cap.verificado ? (cobertas.length*7 + r.pre*0.5 + (r.niv-nivelAtual)*1.2) : (r.pre*0.5 - 1 + (r.niv-nivelAtual)*0.8);
-    if(regride.length) sc -= 100; // empurra regressões para o fim
-    return {t:r.t, pre:r.pre, niv:r.niv, sc, cap, cobertas, faltantesNaDemo, verificado:cap.verificado, regride, upgrade};
-  }).sort((a,b)=>b.sc-a.sc || (b.verificado?1:0)-(a.verificado?1:0));
-  // 4) seleção em camadas: só melhores; sem regressão; com diversidade de faixa
-  const naoRegride=avaliados.filter(r=>r.regride.length===0);
-  const upgrades=naoRegride.filter(r=>r.upgrade);
+  // 1) analisa a FICHA OFICIAL do tema ATUAL (contagem de recursos + o que ele já cobre)
+  if(onStep) onStep('Lendo a ficha oficial de recursos do tema atual…');
+  let atualPag=null;
+  if(atualCat){ try{ atualPag=await analisarTemaPagina(atualCat); }catch(e){} }
+  const countAtual = (atualPag&&atualPag.verificado&&atualPag.count!=null)?atualPag.count:null;
+  const currentCobre = g=> atualPag&&atualPag.verificado? capCobre(atualPag,g) : false; // o tema atual já resolve esse recurso?
+  // 2) pré-seleção pelo perfil e analisa a ficha de cada candidato
+  const ranked=pool.map(t=>({t,pre:scoreTema(t,needs,L),niv:nivelTema(t)})).sort((a,b)=>b.pre-a.pre);
+  const shortlist=ranked.slice(0,Math.min(6,ranked.length));
+  if(onStep) onStep('Comparando a ficha oficial de '+shortlist.length+' temas com o tema atual…');
+  const analisados=await Promise.all(shortlist.map(async r=>({r,cap:await analisarTemaPagina(r.t)})));
+  // 3) avalia: cobertura das lacunas, ganhos REAIS sobre o tema atual e contagem de recursos
+  const avaliados=analisados.map(({r,cap})=>{
+    const cobertas=gaps.filter(g=>capCobre(cap,g));               // recursos que resolvem lacunas da loja
+    const ganhosReais=cobertas.filter(g=>!currentCobre(g));       // que o tema ATUAL NÃO tem = upgrade de verdade
+    const count=(cap.verificado&&cap.count!=null)?cap.count:null;
+    const maisRecursos = (count!=null&&countAtual!=null)? (count-countAtual) : (r.niv-nivelAtualH);
+    // "melhor" = mais recursos que o atual OU resolve lacuna que o atual não resolve
+    const melhor = (maisRecursos>0) || (ganhosReais.length>0);
+    // nunca inferior: se temos contagem, exige count >= countAtual; senão usa heurística de nível
+    const naoInferior = (count!=null&&countAtual!=null)? (count>=countAtual) : (r.niv>=nivelAtualH-0.01);
+    let sc = (ganhosReais.length*10) + (cobertas.length*3) + (maisRecursos>0?Math.min(maisRecursos,40)*0.4:maisRecursos*0.2) + r.pre*0.3;
+    return {t:r.t, pre:r.pre, niv:r.niv, count, sc, cap, cobertas, ganhosReais, melhor, naoInferior, verificado:cap.verificado};
+  }).sort((a,b)=>b.sc-a.sc);
+  // 4) seleção: só melhores e nunca inferiores; diversidade de faixa
+  const elegiveis=avaliados.filter(r=>r.naoInferior && r.melhor);
+  const mesmoNivel=avaliados.filter(r=>r.naoInferior && !r.melhor); // >= atual mas sem ganho (troca de visual)
   const escolhidos=[]; const faixas=new Set();
   const tenta=(lista)=>{ for(const r of lista){ if(escolhidos.length>=3) break; if(escolhidos.includes(r)) continue; const fx=faixaTema(r.t.preco);
       if(escolhidos.length<2 || !faixas.has(fx) || escolhidos.length===2){ escolhidos.push(r); faixas.add(fx); } } };
-  tenta(upgrades); tenta(naoRegride); tenta(avaliados);
-  const semUpgrade = upgrades.length===0;
+  tenta(elegiveis);
+  const semUpgrade = elegiveis.length===0;
+  if(escolhidos.length<3 && semUpgrade) tenta(mesmoNivel); // só completa com mesmo nível se não houver upgrade — nunca inferior
   const totalGaps=Math.max(1,gaps.length);
   const out=escolhidos.slice(0,3).map((r,i)=>{
     const tema=r.t;
-    const base = r.verificado ? Math.round(58 + (r.cobertas.length/totalGaps)*38) : Math.round(60 + (r.pre/ (avaliados[0].pre||1))*18);
-    const match=pct(Math.max(60, Math.min(97, base - i)));
+    let base;
+    if(r.verificado){ base = 62 + Math.round((r.cobertas.length/totalGaps)*24) + Math.min(12, r.ganhosReais.length*5) + (r.count!=null&&countAtual!=null?Math.min(6,Math.max(-4,(r.count-countAtual)*0.3)):0); }
+    else { base = 60 + Math.round((r.pre/(avaliados[0].pre||1))*16); }
+    const match=pct(Math.max(60, Math.min(97, Math.round(base) - i)));
     const confirmados=r.cobertas.map(g=>CAP_ROTULO[g]).filter(Boolean);
-    const extrasDemo=['avaliacoes','freteProduto','filtros','busca','relacionados','zoom','destaques'].filter(k=>r.cap[k]&&!r.cobertas.includes(k)).map(k=>CAP_ROTULO[k]).filter(Boolean);
-    return {tema, match, faixa:faixaTema(tema.preco), verificado:r.verificado, cap:r.cap, nivel:r.niv, ehUpgrade:r.upgrade&&r.regride.length===0,
-      confirmados, extrasDemo:extrasDemo.slice(0,3), naoConfirma:r.faltantesNaDemo.map(g=>CAP_ROTULO[g]).filter(Boolean).slice(0,3),
-      motivo:justificarTema(L,tema,needs,r), tagsRotulo:tema.tags.map(tg=>TAG_ROTULO[tg]).filter(Boolean).slice(0,4), top:i===0};
+    const ganhos=r.ganhosReais.map(g=>CAP_ROTULO[g]).filter(Boolean);
+    const extras=['freteProduto','filtros','busca','avaliacoes','relacionados','tabelaMedidas','carrinhoLateral','quickview'].filter(k=>r.cap[k]&&!r.cobertas.includes(k)).map(k=>CAP_ROTULO[k]).filter(Boolean);
+    return {tema, match, faixa:faixaTema(tema.preco), verificado:r.verificado, cap:r.cap, count:r.count, ehUpgrade:r.melhor&&r.naoInferior,
+      confirmados, ganhos, extrasDemo:extras.slice(0,3),
+      linkTema:r.cap.url||tema.url,
+      motivo:justificarTema(L,tema,needs,r,countAtual), tagsRotulo:tema.tags.map(tg=>TAG_ROTULO[tg]).filter(Boolean).slice(0,4), top:i===0};
   });
-  out.meta={semUpgrade, nivelAtual, temaAtual:L.temaAtual||null};
+  out.meta={semUpgrade, countAtual, temaAtual:L.temaAtual||null, atualPag:atualPag||null};
   return out;
 }
-function justificarTema(L,tema,needs,r){
+function justificarTema(L,tema,needs,r,countAtual){
   const loja=L.nomeLoja||'a loja', seg=L.perfil.segmento.nome.toLowerCase();
-  const p=L.perfil.produtos, parts=[]; const fx=faixaTema(tema.preco);
+  const parts=[]; const fx=faixaTema(tema.preco); const ta=L.temaAtual;
   parts.push('Feito para '+seg+', o mesmo ramo da '+loja+'.');
   if(r&&r.verificado){
-    const conf=(r.cobertas||[]).map(g=>CAP_ROTULO[g]).filter(Boolean);
-    if(conf.length){ parts.push('Na análise ao vivo da demonstração, confirmamos '+listPt(conf.slice(0,3))+' — justamente '+(conf.length>1?'os pontos que a loja não exibe hoje':'o ponto que a loja não exibe hoje')+'.'); }
-    else { const extras=['filtros','busca','avaliacoes','freteProduto','relacionados'].filter(k=>r.cap[k]).map(k=>CAP_ROTULO[k]).filter(Boolean); parts.push('A demonstração confirma uma base sólida de experiência'+(extras.length?' ('+listPt(extras.slice(0,3))+')':'')+', embora a loja já cubra a maioria das lacunas principais.'); }
-    // reforço específico por maior lacuna
-    if((r.cobertas||[]).includes('freteProduto')) parts.push('O frete e o prazo aparecem na própria página do produto — e 47% abandonam ao ver o frete só no fim.');
-    else if((r.cobertas||[]).includes('avaliacoes')) parts.push('Traz avaliações no produto, que 64% checam antes de comprar em loja que não conhecem.');
-    else if((r.cobertas||[]).includes('filtros')||(r.cobertas||[]).includes('busca')) parts.push('A navegação por busca e filtros encurta o caminho até o produto — navegação melhor pode elevar a conversão em até ~35%.');
-    if(r.naoConfirma&&r.naoConfirma.length) parts.push('Na demo não localizamos '+listPt(r.naoConfirma.slice(0,2))+'; vale confirmar esse ponto ao vivo com o lojista.');
+    const ganhos=(r.ganhosReais||[]).map(g=>CAP_ROTULO[g]).filter(Boolean);
+    const cob=(r.cobertas||[]).map(g=>CAP_ROTULO[g]).filter(Boolean);
+    if(ganhos.length){ parts.push('Pela ficha oficial do tema'+(r.count!=null?' ('+r.count+' de 125 recursos da Tray)':'')+', ele adiciona '+listPt(ganhos.slice(0,3))+(ta&&ta.nome?' — que o '+ta.nome+' não entrega':'')+', resolvendo lacunas da loja.'); }
+    else if(cob.length){ parts.push('Pela ficha oficial'+(r.count!=null?' ('+r.count+' de 125 recursos)':'')+', cobre '+listPt(cob.slice(0,3))+' — pontos que a loja não exibe hoje.'); }
+    else { parts.push('Pela ficha oficial, traz uma base sólida de experiência'+(r.count!=null?' ('+r.count+' de 125 recursos da Tray)':'')+'.'); }
+    if((r.ganhosReais||[]).includes('freteProduto')) parts.push('Inclui o cálculo de frete e prazo na própria página do produto — e 47% abandonam ao ver o frete só no fim.');
+    else if((r.ganhosReais||[]).includes('avaliacoes')) parts.push('Traz avaliações no produto, que 64% checam antes de comprar em loja que não conhecem.');
+    else if((r.ganhosReais||[]).includes('filtros')||(r.ganhosReais||[]).includes('busca')) parts.push('Melhora a navegação por busca e filtros — navegação melhor pode elevar a conversão em até ~35%.');
   } else {
-    parts.push('Não foi possível abrir a demonstração agora para confirmar os recursos ao vivo — pela ficha do tema ele traz '+listPt(tema.tags.map(t=>lower1(TAG_ROTULO[t]||t)).slice(0,3))+'. Antes de fechar, abra a demo e confirme busca, filtros, frete no produto e avaliações.');
+    parts.push('Não foi possível ler a ficha oficial agora — pelo catálogo ele traz '+listPt(tema.tags.map(t=>lower1(TAG_ROTULO[t]||t)).slice(0,3))+'. Confirme os recursos na página do tema antes de fechar.');
   }
   const enc= fx==='entrada'?'Cabe no orçamento de uma operação enxuta':(fx==='premium'?'É um investimento à altura de uma operação que quer se posicionar acima da média':'Tem um custo-benefício equilibrado para escalar');
-  // comparação com o tema atual — deixa explícito que é um upgrade, não uma troca lateral
-  const ta=L.temaAtual;
   if(ta&&ta.nome){
-    if(r&&r.upgrade&&(!r.regride||!r.regride.length)){
-      const ganho=(r.cobertas||[]).map(g=>CAP_ROTULO[g]).filter(Boolean);
-      parts.push('É um passo acima do tema atual da loja ('+ta.nome+')'+(ganho.length?': adiciona '+listPt(ganho.slice(0,2))+' sem abrir mão do que a loja já tem':' — mais completo e sem perder recursos atuais')+'.');
-    } else {
-      parts.push('Não supera o tema atual ('+ta.nome+') em recursos; considere-o apenas se o objetivo for renovar o visual da loja, não ganhar funcionalidades.');
-    }
+    if(r&&r.melhor&&r.naoInferior){ parts.push('É um upgrade real em relação ao tema atual ('+ta.nome+')'+(r.count!=null&&countAtual!=null?', com '+r.count+' recursos contra '+countAtual+' do atual':'')+'.'); }
+    else { parts.push('Não supera o tema atual ('+ta.nome+') em recursos; considere-o apenas para renovar o visual, não para ganhar funcionalidades.'); }
   }
   parts.push(enc+' — compra única, sem mensalidade sobre o tema'+(tema.dia?', e é de um parceiro Diamante da Tray':'')+'.');
   return parts.join(' ');
@@ -1122,7 +1146,7 @@ async function run(){
   const lojaPaste=document.getElementById('loja-paste').value.trim();
   if(!lojaUrl&&!lojaPaste){ alertEl.className='alert on'; alertEl.textContent='Informe o endereço da loja para começar a análise.'; return; }
   runBtn.disabled=true;
-  const lines=[{s:'load',t:'Lendo '+(shortUrl(lojaUrl)||'o conteúdo colado')+'…'},{s:'',t:'Sondando sitemap e lendo uma página de produto'},{s:'',t:'Analisando experiência e conversão'},{s:'',t:'Analisando as demonstrações dos temas ao vivo'}];
+  const lines=[{s:'load',t:'Lendo '+(shortUrl(lojaUrl)||'o conteúdo colado')+'…'},{s:'',t:'Sondando sitemap e lendo uma página de produto'},{s:'',t:'Analisando experiência e conversão'},{s:'',t:'Lendo as fichas oficiais dos temas e comparando'}];
   setStatus(lines);
   let loja=null;
   try{
@@ -1152,7 +1176,7 @@ async function run(){
     alertEl.className='alert on'; alertEl.textContent='Não consegui ler a loja pelo relay público. Clique em analisar de novo, ou ative "Colar conteúdo manualmente" e cole o código-fonte da página inicial.';
     runBtn.disabled=false; return;
   }
-  lines[3]={s:'load',t:'Analisando as demonstrações dos temas ao vivo…'}; setStatus(lines);
+  lines[3]={s:'load',t:'Lendo as fichas oficiais dos temas…'}; setStatus(lines);
   try{
     const fortes=montarFortes(loja), fracos=montarFracos(loja), faltantes=montarFaltantes(loja);
     const melhorias=montarMelhorias(loja,fracos);
@@ -1191,12 +1215,15 @@ function render(){
 
   /* tema atual da loja */
   const ta=L.temaAtual||{};
+  const metaR=(state.temas&&state.temas.meta)||{};
+  const countAtualR=(metaR.atualPag&&metaR.atualPag.count!=null)?metaR.atualPag.count:null;
   let taHtml;
   if(ta.nome){
+    const linkLabel = ta.linkTipo==='tema'?'Ver na loja de temas':'Buscar na loja de temas';
     taHtml='<div class="tematual"><div class="ti"><svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 9l9-6 9 6v11a1 1 0 0 1-1 1h-5v-7H9v7H4a1 1 0 0 1-1-1z"/></svg></div>'+
       '<div class="tb"><span class="tl">Tema publicado na loja hoje</span><b>'+esc(ta.nome)+(ta.versao?' <span class="tv">v'+esc(ta.versao)+'</span>':'')+'</b>'+
-      (ta.ehTrayTheme?'<span class="tsrc yes">Tema da Loja de Temas Tray</span>':'<span class="tsrc">Não identificado no catálogo — pode ser personalizado ou de terceiros</span>')+'</div>'+
-      (ta.link?'<a class="tlink" href="'+esc(ta.link)+'" target="_blank" rel="noopener">'+(ta.ehTrayTheme?'Ver na loja de temas':'Buscar na loja de temas')+' →</a>':'')+'</div>';
+      (ta.ehTrayTheme?'<span class="tsrc yes">Tema da Loja de Temas Tray'+(countAtualR!=null?' · '+countAtualR+' de 125 recursos':'')+'</span>':'<span class="tsrc">Não identificado com segurança no catálogo — busque pelo nome para confirmar</span>')+'</div>'+
+      (ta.link?'<a class="tlink" href="'+esc(ta.link)+'" target="_blank" rel="noopener">'+linkLabel+' →</a>':'')+'</div>';
   } else {
     taHtml='<div class="tematual none"><div class="ti"><svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 9l9-6 9 6v11a1 1 0 0 1-1 1h-5v-7H9v7H4a1 1 0 0 1-1-1z"/></svg></div>'+
       '<div class="tb"><span class="tl">Tema publicado na loja hoje</span><b>Não identificado no código</b><span class="tsrc">Provável tema personalizado (sem a tag padrão dos temas Tray), ou a leitura não alcançou o header. As recomendações abaixo consideram só o que a loja exibe hoje.</span></div></div>';
@@ -1238,8 +1265,8 @@ function render(){
   const taNome=meta.temaAtual&&meta.temaAtual.nome?meta.temaAtual.nome:'';
   let subTemas;
   if(taNome && meta.semUpgrade){ subTemas='A loja já usa o <b>'+esc(taNome)+'</b>, um dos temas mais completos do catálogo para este caso — <b>não encontramos um tema superior a ele</b>. As opções abaixo são o que há de mais próximo e servem apenas como alternativa de visual, não como ganho de recursos; o mais indicado aqui é ajustar a configuração do tema atual (ver "o que falta exibir").'; }
-  else if(taNome){ subTemas='Todas as opções abaixo são <b>upgrades em relação ao tema atual da loja ('+esc(taNome)+')</b> — nunca inferiores. A ferramenta abre a demonstração de cada candidato, analisa ao vivo o que ele entrega e confirma que ele adiciona recursos sem abrir mão do que a loja já tem. Abra a demo com o lojista antes de fechar.'; }
-  else { subTemas='Partindo do diagnóstico (segmento e experiência de navegação), a ferramenta abre a demonstração de cada candidato e <b>analisa ao vivo</b> o que ele entrega, priorizando os que cobrem as lacunas da loja sem regredir no que ela já exibe. Abra a demo com o lojista antes de fechar.'; }
+  else if(taNome){ subTemas='Todas as opções abaixo são <b>upgrades reais em relação ao tema atual ('+esc(taNome)+')</b> — nunca inferiores. A ferramenta lê a <b>ficha oficial de recursos</b> de cada tema na loja de temas (a contagem "X de 125 recursos da Tray"), compara com a do tema atual e só recomenda os que têm mais recursos e resolvem lacunas que o tema atual não resolve.'; }
+  else { subTemas='Partindo do diagnóstico, a ferramenta lê a <b>ficha oficial de recursos</b> de cada tema na loja de temas Tray e prioriza os que cobrem as lacunas da loja. A contagem "X de 125 recursos" vem direto da página oficial do tema.'; }
   h.push('<div class="section"><div class="sec-title"><span class="kicker">7 · Temas recomendados</span><h2>'+(taNome&&!meta.semUpgrade?'Upgrades de tema para esta loja':'3 temas certos para esta loja')+'</h2></div><p class="sec-sub">'+subTemas+'</p><div class="cards c3">'+
    state.temas.map(r=>temaCardHtml(r)).join('')+'</div></div>');
 
@@ -1263,13 +1290,14 @@ function render(){
    '<button class="btn btn-ghost" id="copy-summary"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="9" y="9" width="13" height="13" rx="2"/><path d="M5 15V5a2 2 0 0 1 2-2h10"/></svg>Copiar resumo</button></div></div>');
   resultsEl.innerHTML=h.join(''); resultsEl.className='on'; wireResults();
 }
-function temaCardHtml(r){ const t=r.tema; const parcela=t.preco/12;
+function temaCardHtml(r){ const t=r.tema; const parcela=t.preco/12; const linkTema=r.linkTema||t.url;
   const selo = r.verificado
-    ? '<div class="ver ok"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6L9 17l-5-5"/></svg>Demonstração analisada ao vivo</div>'
-    : '<div class="ver no"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9"/><path d="M12 8v4M12 16h.01"/></svg>Demo não confirmada — verifique ao vivo</div>';
-  const conf = (r.verificado && r.confirmados && r.confirmados.length)
-    ? '<div class="conf"><span class="cl">Confirmado na demo, cobre a lacuna da loja:</span><div class="ctags">'+r.confirmados.slice(0,4).map(c=>'<span class="ct yes">✓ '+esc(cap(c))+'</span>').join('')+'</div></div>'
-    : (r.verificado && r.extrasDemo && r.extrasDemo.length ? '<div class="conf"><span class="cl">Confirmado na demo:</span><div class="ctags">'+r.extrasDemo.map(c=>'<span class="ct yes">✓ '+esc(cap(c))+'</span>').join('')+'</div></div>':'');
+    ? '<div class="ver ok"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6L9 17l-5-5"/></svg>Ficha oficial do tema conferida'+(r.count!=null?' · '+r.count+'/125 recursos Tray':'')+'</div>'
+    : '<div class="ver no"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9"/><path d="M12 8v4M12 16h.01"/></svg>Ficha não confirmada — verifique na página do tema</div>';
+  let conf='';
+  if(r.verificado && r.ganhos && r.ganhos.length){ conf='<div class="conf up"><span class="cl">Ganhos sobre o tema atual (resolve lacunas da loja):</span><div class="ctags">'+r.ganhos.slice(0,4).map(c=>'<span class="ct up">▲ '+esc(cap(c))+'</span>').join('')+'</div></div>'; }
+  else if(r.verificado && r.confirmados && r.confirmados.length){ conf='<div class="conf"><span class="cl">Confirmado na ficha, cobre lacuna da loja:</span><div class="ctags">'+r.confirmados.slice(0,4).map(c=>'<span class="ct yes">✓ '+esc(cap(c))+'</span>').join('')+'</div></div>'; }
+  else if(r.verificado && r.extrasDemo && r.extrasDemo.length){ conf='<div class="conf"><span class="cl">Recursos confirmados na ficha:</span><div class="ctags">'+r.extrasDemo.map(c=>'<span class="ct yes">✓ '+esc(cap(c))+'</span>').join('')+'</div></div>'; }
   return '<div class="theme '+(r.top?'top':'')+'">'+(r.top?'<span class="flag"><svg width="11" height="11" viewBox="0 0 24 24" fill="#fff"><path d="M3 7l4 4 5-7 5 7 4-4-2 12H5z"/></svg>Mais aderente</span>':'')+
     (r.ehUpgrade?'<span class="flag up"><svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><path d="M12 19V5M5 12l7-7 7 7"/></svg>Upgrade</span>':'')+
     '<div class="thead"><div class="cat">'+esc(cap(t.seg==='geral'?'Versátil':(SEGMENTOS.find(s=>s.id===t.seg)||{}).nome||t.seg))+'</div><h3>'+esc(t.n)+'</h3><div class="dev">por '+esc(t.dev)+(t.dia?'<span class="pill">Diamante</span>':'')+'</div></div>'+
@@ -1277,7 +1305,7 @@ function temaCardHtml(r){ const t=r.tema; const parcela=t.preco/12;
     selo+
     '<div class="body"><div class="why">'+esc(r.motivo)+'</div>'+conf+'<div class="tags">'+r.tagsRotulo.map(tg=>'<span class="tg">'+esc(tg)+'</span>').join('')+'</div>'+
     '<div class="price"><div class="p">'+brl(t.preco)+'<small>ou 12x de '+brl(parcela)+'</small></div><div class="once">compra única<br/>sem mensalidade</div></div></div>'+
-    '<div class="links"><a class="demo" href="'+esc(t.demo)+'" target="_blank" rel="noopener">Ver demonstração</a><a class="pg" href="'+esc(t.url)+'" target="_blank" rel="noopener">Página do tema</a></div></div>'; }
+    '<div class="links"><a class="demo" href="'+esc(t.demo)+'" target="_blank" rel="noopener">Ver demonstração</a><a class="pg" href="'+esc(linkTema)+'" target="_blank" rel="noopener">Página do tema</a></div></div>'; }
 function wireResults(){
   document.querySelectorAll('.arg .copy').forEach(b=>b.addEventListener('click',()=>{ const k=b.getAttribute('data-arg'); const txt=k==='pitch'?state.args.pitch:state.args.blocos[+k].t; copyText(txt,b,'Copiado ✓'); }));
   const cs=document.getElementById('copy-summary'); if(cs) cs.addEventListener('click',()=>copyText(buildSummary(),cs,'Resumo copiado ✓'));
