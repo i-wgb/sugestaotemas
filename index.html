@@ -1009,6 +1009,32 @@ function parseTemaPagina(html){
   rec.canonical=cn?cn[1].trim():'';
   return rec;
 }
+/* monta o slug do tema a partir do nome (padrão de URL da loja de temas Tray) */
+function slugify(s){ return deaccent(String(s||'').toLowerCase()).replace(/[^a-z0-9]+/g,'-').replace(/^-+|-+$/g,''); }
+/* acha a página do tema pelo resultado da busca da loja de temas (fallback quando o slug não resolve) */
+async function acharTemaViaBusca(nome){
+  try{
+    const html=await fetchText('https://temas.tray.com.br/busca?q='+encodeURIComponent(nome),13000);
+    let href='';
+    try{ const dom=new DOMParser().parseFromString(html,'text/html');
+      href=[...dom.querySelectorAll('a[href]')].map(a=>a.getAttribute('href')||'').find(x=>/\/temas\/[a-z0-9-]+/i.test(x)&&!/\/busca/i.test(x))||''; }catch(e){}
+    if(!href){ const m=html.match(/["'](https?:\/\/temas\.tray\.com\.br\/temas\/[a-z0-9-]+)["']/i)||html.match(/["'](\/temas\/[a-z0-9-]+)["']/i); if(m) href=m[1]; }
+    return href?resolveUrl(href,'https://temas.tray.com.br'):'';
+  }catch(e){ return ''; }
+}
+/* resolve o tema atual DIRETO na loja de temas (não depende do catálogo interno):
+   tenta a URL do catálogo (se confiável) -> URL derivada do nome -> resultado da busca. */
+async function resolverTemaAtual(ta){
+  if(!ta||!ta.nome) return null;
+  const urls=[];
+  if(ta.catalogo&&(ta.matchConf==='exata'||ta.matchConf==='alta')) urls.push(ta.catalogo.url);
+  const slug=slugify(ta.nome); if(slug) urls.push('https://temas.tray.com.br/temas/'+slug);
+  for(const url of urls){ try{ const pag=await analisarTemaPagina({url,demo:'',n:ta.nome}); if(pag.verificado&&pag.count!=null) return pag; }catch(e){} }
+  const link=await acharTemaViaBusca(ta.nome);
+  if(link){ try{ const pag=await analisarTemaPagina({url:link,demo:'',n:ta.nome}); if(pag.verificado&&(pag.count!=null||/\/temas\//i.test(pag.url))){ pag.viaBusca=true; return pag; } }catch(e){} }
+  return null;
+}
+
 async function analisarTemaPagina(tema){
   const cap={verificado:false,erro:'',count:null,url:tema.url,demo:tema.demo,
     busca:false,filtros:false,submenu:false,avaliacoes:false,freteProduto:false,relacionados:false,compreJunto:false,destaques:false,vitrines:false,zoom:false,quickview:false,tabelaMedidas:false,carrinhoLateral:false,mobile:false};
@@ -1026,20 +1052,23 @@ async function analisarTemaPagina(tema){
 
 async function recomendarTemas(L,onStep){
   const segKey=TEMA_MAP_SEG[L.perfil.segmento.id]||'geral';
-  const conf=L.temaAtual&&L.temaAtual.matchConf;
-  const atualCat=(L.temaAtual&&L.temaAtual.catalogo&&(conf==='exata'||conf==='alta'))?L.temaAtual.catalogo:null;
-  const atualId=atualCat?norm(atualCat.n):(L.temaAtual&&L.temaAtual.nome?norm(L.temaAtual.nome):'');
-  const ehAtual=t=>atualId && (norm(t.n)===atualId || (atualCat&&t.url===atualCat.url));
+  // 1) resolve o tema ATUAL direto na loja de temas (nome -> slug -> busca), sem depender do catálogo interno
+  if(onStep) onStep('Confirmando o tema atual na loja de temas…');
+  let atualPag=null;
+  if(L.temaAtual&&L.temaAtual.nome){ try{ atualPag=await resolverTemaAtual(L.temaAtual); }catch(e){} }
+  if(atualPag){ // confirmado na loja de temas — corrige link e identificação
+    L.temaAtual.ehTrayTheme=true; L.temaAtual.confirmado=true; L.temaAtual.linkTipo='tema';
+    if(atualPag.url&&/\/temas\//i.test(atualPag.url)) L.temaAtual.link=atualPag.url;
+  }
+  const atualUrl=atualPag&&atualPag.url?atualPag.url:(L.temaAtual&&L.temaAtual.catalogo?L.temaAtual.catalogo.url:'');
+  const atualId=L.temaAtual&&L.temaAtual.nome?norm(L.temaAtual.nome):'';
+  const ehAtual=t=>(atualId&&norm(t.n)===atualId)||(atualUrl&&t.url===atualUrl);
   let pool=CATALOGO_TEMAS.filter(t=>t.seg===segKey && !ehAtual(t));
   const complementar=CATALOGO_TEMAS.filter(t=>t.seg==='geral'&&t.seg!==segKey&&!ehAtual(t));
   if(pool.length<5) pool=pool.concat(complementar);
   const needs=calcNeeds(L);
   const nivelAtualH=(L.temaAtual&&L.temaAtual.nivel)||0; // heurístico (fallback)
   const lac=lacunasLoja(L); const gaps=Object.keys(lac).filter(k=>lac[k]);
-  // 1) analisa a FICHA OFICIAL do tema ATUAL (contagem de recursos + o que ele já cobre)
-  if(onStep) onStep('Lendo a ficha oficial de recursos do tema atual…');
-  let atualPag=null;
-  if(atualCat){ try{ atualPag=await analisarTemaPagina(atualCat); }catch(e){} }
   const countAtual = (atualPag&&atualPag.verificado&&atualPag.count!=null)?atualPag.count:null;
   const currentCobre = g=> atualPag&&atualPag.verificado? capCobre(atualPag,g) : false; // o tema atual já resolve esse recurso?
   // 2) pré-seleção pelo perfil e analisa a ficha de cada candidato
