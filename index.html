@@ -165,6 +165,9 @@
   .evchip{font-size:12px;color:var(--ink-2);background:var(--red-soft);border:1px solid var(--red-line);border-radius:7px;padding:4px 9px;line-height:1.3}
   .impacto{display:flex;gap:8px;align-items:flex-start;font-size:13px;font-weight:600;color:#9A423C;background:var(--red-soft);border-radius:9px;padding:9px 11px;margin-bottom:10px;line-height:1.4}
   .impacto svg{flex:none;margin-top:2px;color:var(--red)}
+  .pain.config-fix{border-left-color:var(--amber)}
+  .cfg-badge{display:flex;align-items:center;gap:6px;font-size:11px;font-weight:700;letter-spacing:.04em;text-transform:uppercase;color:#8A6010;background:#FDF3DC;border:1px solid #F0D89A;border-radius:7px;padding:5px 9px;margin-bottom:10px}
+  .cfg-badge svg{flex:none;color:#C08010}
 
   /* dados de mercado */
   .bench{display:grid;gap:12px}
@@ -901,19 +904,46 @@ function montarFortes(L){
   if(s.blog) add('Conteúdo próprio / blog','Há conteúdo próprio, que alimenta o tráfego orgânico e sustenta a venda quando a verba de anúncio cai.');
   return F.slice(0,8);
 }
-function montarFracos(L){
+function montarFracos(L, atualPag){
   const D=[]; const B=BENCHMARKS;
   const okNomes=arr=>(arr||[]).filter(x=>x.ok).map(x=>x.nome);
-  const pagFound=okNomes(L.exp.pagamentos), freteFound=okNomes(L.exp.frete), provaFound=okNomes(L.mkt.prova), atendFound=okNomes(L.mkt.atendimento);
-  const push=(t,ev,sol,benchKey,evid,impacto)=>{ const bm=B[benchKey]; D.push({titulo:t,evidencia:ev,solucao:sol,bench:bm?(bm.num+' — '+bm.txt+' ('+bm.fonte+(bm.ano?', '+bm.ano:'')+').'):'',evidencias:(evid||[]).filter(Boolean),impacto:impacto||''}); };
+  const pagFound=okNomes(L.exp.pagamentos), freteFound=okNomes(L.exp.frete), provaFound=okNomes(L.mkt.prova);
+  /* temaTemRecurso: o tema atual suporta este recurso na ficha oficial (problema é configuração, não o tema) */
+  const temaTemRecurso = g => atualPag&&atualPag.verificado ? capCobre(atualPag,g) : false;
+  /* push com flag opcional isConfig: quando isConfig=true, a solução aponta para ativação, não troca de tema */
+  const push=(titulo,ev,sol,benchKey,evid,impacto,isConfig)=>{
+    const bm=B[benchKey];
+    D.push({titulo,evidencia:ev,solucao:sol,bench:bm?(bm.num+' — '+bm.txt+' ('+bm.fonte+(bm.ano?', '+bm.ano:'')+').'):'',
+      evidencias:(evid||[]).filter(Boolean),impacto:impacto||'',isConfig:!!isConfig});
+  };
   const e=L.exp,c=L.convSig,t=L.trustSig,tec=L.tec,s=L.seo;
   if(!tec.viewport) push('A loja não parece adaptada para o celular','Não encontramos configuração responsiva (meta viewport) na página inicial.','Um tema responsivo e mobile-first resolve isso de imediato — a maior parte da visita e da venda hoje vem do celular.','mobile',['Meta viewport ausente no HTML','Sem classes de menu mobile detectadas'],'No celular, o layout quebra e o cliente desiste antes de comprar.');
   if(tec.velocidade==='lenta') push('Loja pesada, principalmente no celular','Home com ~'+tec.pesoKb+' KB de HTML, '+tec.scripts+' scripts e '+tec.dominios+' domínios externos.','Um tema otimizado, com lazy load e imagens em WebP, deixa a loja mais leve e segura a visita que a lentidão faz sair.','velocidade',['HTML ~'+tec.pesoKb+' KB','~'+tec.scripts+' scripts na home','~'+tec.dominios+' domínios externos',(!tec.lazy?'Sem lazy-load de imagens':''),(!tec.webp?'Imagens fora de WebP':'')],'Cada segundo a mais de carregamento derruba a conversão e aumenta a saída.');
-  if(!c.freteCalc) push('O frete só aparece no fim da compra',(c.freteGratis||c.prazo?'A loja mostra frete grátis/prazo, mas ':'')+'não localizamos cálculo de frete por CEP antes do carrinho.','Um tema que expõe frete e prazo já na página do produto tira a surpresa que derruba a conversão no checkout.','frete',['Nenhum campo de CEP/cálculo de frete na página de produto lida',(freteFound.length?'Encontrado só: '+listPt(freteFound):'Nenhum sinal de frete na página')],'O custo do frete surpreende no checkout e o carrinho é abandonado.');
-  if(!t.avaliacoes) push('Faltam avaliações de clientes nos produtos','Não encontramos bloco de avaliações/estrelas na home nem na página de produto lida.','Um tema com bloco de avaliações nativo (ou integração pronta) coloca a prova social na frente do cliente que não conhece a marca.','avaliacoes',['Sem provedor de avaliação (Trustvox, Yourviews) no código','Sem estrelas/nota média na página de produto',(provaFound.length?'Prova social encontrada: '+listPt(provaFound):'Nenhum sinal de prova social')],'Sem prova social, quem não conhece a marca não confia e não compra.');
+  if(!c.freteCalc){
+    const config=temaTemRecurso('freteProduto');
+    push('O frete só aparece no fim da compra',(c.freteGratis||c.prazo?'A loja mostra frete grátis/prazo, mas ':'')+'não localizamos cálculo de frete por CEP antes do carrinho.',
+      config ? 'O tema atual ('+((atualPag&&atualPag.nome)||'atual')+') já tem o widget de frete — é necessário ativar e posicionar o bloco na página do produto nas configurações do tema.' : 'Um tema que expõe frete e prazo já na página do produto tira a surpresa que derruba a conversão no checkout.',
+      'frete',['Nenhum campo de CEP/cálculo de frete na página de produto lida',(freteFound.length?'Encontrado só: '+listPt(freteFound):'Nenhum sinal de frete na página')],'O custo do frete surpreende no checkout e o carrinho é abandonado.',config);
+  }
+  if(!t.avaliacoes){
+    const config=temaTemRecurso('avaliacoes');
+    push('Faltam avaliações de clientes nos produtos','Não encontramos bloco de avaliações/estrelas na home nem na página de produto lida.',
+      config ? 'O tema atual já suporta avaliações na ficha — ative a integração com Trustvox ou Yourviews e habilite o bloco no painel do tema; não é necessário trocar de tema para isso.' : 'Um tema com bloco de avaliações nativo (ou integração pronta) coloca a prova social na frente do cliente que não conhece a marca.',
+      'avaliacoes',['Sem provedor de avaliação (Trustvox, Yourviews) no código','Sem estrelas/nota média na página de produto',(provaFound.length?'Prova social encontrada: '+listPt(provaFound):'Nenhum sinal de prova social')],'Sem prova social, quem não conhece a marca não confia e não compra.',config);
+  }
   if(!c.pix) push('Pix não aparece na vitrine','Não localizamos Pix entre os meios de pagamento exibidos.','Deixar Pix e cartão visíveis na vitrine e no rodapé, como os temas trazem por padrão, reforça o meio preferido do brasileiro.','pix',[(pagFound.length?'Selos de pagamento na loja: '+listPt(pagFound):'Nenhum selo de pagamento visível'),'Pix ausente entre os selos'],'O cliente que só usa Pix não vê a opção e sai para o concorrente.');
-  if(!e.filtros&&L.perfil.produtos>=120) push('Catálogo grande sem filtro para navegar','Cerca de '+L.perfil.produtos+' produtos e nenhum sistema de filtro identificado.','Um tema com filtros por categoria, atributo e faixa de preço transforma um catálogo grande em navegação — em vez de labirinto.','checkout',['~'+L.perfil.produtos+' produtos no catálogo','Nenhum controle de filtro/ordenação encontrado'],'Sem filtro, o cliente não acha o produto e abandona a navegação.');
-  if(!e.busca) push('Sem busca visível na loja','Não encontramos campo de busca no header.','A busca com sugestão é nativa nos temas e é por onde o cliente com intenção de compra chega ao produto.','checkout',['Nenhum campo de busca (input search) no cabeçalho'],'Quem chega decidido não encontra o produto e vai embora.');
+  if(!e.filtros&&L.perfil.produtos>=120){
+    const config=temaTemRecurso('filtros');
+    push('Catálogo grande sem filtro para navegar','Cerca de '+L.perfil.produtos+' produtos e nenhum sistema de filtro identificado.',
+      config ? 'O tema atual já suporta filtro inteligente — ative o recurso nas configurações do tema; pode não ser necessário trocar de tema.' : 'Um tema com filtros por categoria, atributo e faixa de preço transforma um catálogo grande em navegação — em vez de labirinto.',
+      'checkout',['~'+L.perfil.produtos+' produtos no catálogo','Nenhum controle de filtro/ordenação encontrado'],'Sem filtro, o cliente não acha o produto e abandona a navegação.',config);
+  }
+  if(!e.busca){
+    const config=temaTemRecurso('busca');
+    push('Sem busca visível na loja','Não encontramos campo de busca no header.',
+      config ? 'O tema atual já tem sugestão de busca na ficha — verifique se o bloco de busca está habilitado nas configurações do tema.' : 'A busca com sugestão é nativa nos temas e é por onde o cliente com intenção de compra chega ao produto.',
+      'checkout',['Nenhum campo de busca (input search) no cabeçalho'],'Quem chega decidido não encontra o produto e vai embora.',config);
+  }
   if(!t.selo&&!t.reclameAqui&&!t.cnpj) push('A loja passa pouca segurança para quem chega de fora','Poucos sinais de confiança na loja.','Um tema com rodapé de confiança, selos e páginas de política prontas reduz o principal medo do comprador brasileiro: cair em golpe.','fraude',['Sem selo de segurança visível','Sem Reclame Aqui','Sem CNPJ no rodapé'],'A loja parece insegura e o medo de golpe trava a compra.');
   if(!t.politicaTroca) push('Política de troca e devolução pouco visível','Não localizamos link claro de troca/devolução no rodapé.','Deixar a política visível no rodapé e no produto — como os temas organizam — dá segurança para fechar, sobretudo em moda e eletrônicos.','troca',['Nenhum link de troca/devolução/reembolso no rodapé'],'Sem política clara, o cliente teme não poder devolver e desiste.');
   if(L.exp.checkoutExterno) push('O cliente sai da loja para pagar','Encontramos sinal de checkout externo ('+L.exp.checkoutExterno+') no código.','Manter o cliente na loja até o fim reduz a desistência; confirme o fluxo de checkout e alinhe o tema à jornada de compra completa.','abandono',['Checkout externo detectado: '+L.exp.checkoutExterno],'Cada redirecionamento para fora perde parte dos compradores.');
@@ -1083,18 +1113,46 @@ function extrairLinksTema(html){
   (html.match(/(https?:\/\/temas\.tray\.com\.br\/temas\/[a-z0-9-]+)/gi)||[]).forEach(add);
   return [...urls];
 }
-/* descobre candidatos AO VIVO na loja de temas (categoria + busca), sem catálogo interno */
-async function descobrirCandidatosLive(segId,segNome,onStep){
-  const cats=SEG_CAT[segId]||[]; const urls=new Set();
+/* descobre candidatos AO VIVO na loja de temas.
+   Estratégia em camadas:
+   1) páginas de categoria do segmento (slugs diretos)
+   2) busca por nome do segmento
+   3) buscas por lacunas-chave da loja (ex: "filtro inteligente moda") — encontra temas que resolvem
+      especificamente o que a loja precisa, independente de categoria
+   Temas que aparecem em mais fontes ficam no topo (mais "salientes" no catálogo ao vivo). */
+async function descobrirCandidatosLive(segId,segNome,gaps,onStep){
+  const cats=SEG_CAT[segId]||SEG_CAT['geral']||[];
+  /* monta lista de fontes sem repetir */
   const fontes=[];
-  cats.forEach(c=>fontes.push('https://temas.tray.com.br/categorias/temas/'+c));
-  cats.forEach(c=>fontes.push('https://temas.tray.com.br/colecoes/'+c));
-  fontes.push('https://temas.tray.com.br/busca?q='+encodeURIComponent(segNome||segId));
+  /* camada 1: categorias do segmento */
+  cats.forEach(c=>{
+    fontes.push('https://temas.tray.com.br/categorias/temas/'+c);
+    fontes.push('https://temas.tray.com.br/colecoes/'+c);
+  });
+  /* camada 2: busca por nome do segmento e variações */
+  if(segNome) fontes.push('https://temas.tray.com.br/busca?q='+encodeURIComponent(segNome));
+  if(segId&&segId!=='geral'&&segId!=='custom') fontes.push('https://temas.tray.com.br/busca?q='+encodeURIComponent(segId));
+  /* camada 3: buscas por lacunas prioritárias — encontra temas que resolvem o que a loja precisa */
+  const lacunaTermos={
+    filtros:'filtro inteligente',busca:'busca com sugestão',avaliacoes:'avaliações produto',
+    carrinhoLateral:'carrinho lateral',freteProduto:'frete produto',zoom:'zoom produto',
+    relacionados:'compre junto',destaques:'vitrine destaques',tabelaMedidas:'tabela medidas'
+  };
+  (gaps||[]).slice(0,4).forEach(g=>{
+    const termo=lacunaTermos[g]; if(!termo) return;
+    const q=segNome?termo+' '+segNome:termo;
+    fontes.push('https://temas.tray.com.br/busca?q='+encodeURIComponent(q));
+  });
+  /* consulta todas as fontes e conta quantas vezes cada URL aparece (frequência = relevância) */
+  const freq=new Map();
   for(const f of fontes){
-    if(urls.size>=14) break;
-    try{ const html=await fetchText(f,13000); extrairLinksTema(html).forEach(u=>urls.add(u)); }catch(e){}
+    try{
+      const html=await fetchText(f,13000);
+      extrairLinksTema(html).forEach(u=>freq.set(u,(freq.get(u)||0)+1));
+    }catch(e){}
   }
-  return [...urls].slice(0,14);
+  /* ordena por frequência decrescente — temas que aparecem em mais páginas ficam primeiro */
+  return [...freq.entries()].sort((a,b)=>b[1]-a[1]).map(e=>e[0]).slice(0,18);
 }
 function nomeFromUrl(url){ const slug=(url||'').replace(/\/$/,'').split('/').pop()||''; return slug.split('-').map(w=>w.length<=3&&/^(e|de|da|do|com|pro|ap)$/i.test(w)?w:cap(w)).join(' '); }
 function tagsFromCap(cap){ const t=[];
@@ -1141,28 +1199,58 @@ async function recomendarTemas(L,onStep){
   const countAtual = (atualPag&&atualPag.verificado&&atualPag.count!=null)?atualPag.count:null;
   const totalAtual = (atualPag&&atualPag.total!=null)?atualPag.total:null;
   const currentCobre = g=> atualPag&&atualPag.verificado? capCobre(atualPag,g) : false; // o tema atual já resolve esse recurso?
-  // 2) DESCOBRE os candidatos AO VIVO na loja de temas (por categoria) — sem catálogo interno
-  if(onStep) onStep('Buscando os temas do segmento na loja de temas…');
-  let candUrls=[]; try{ candUrls=await descobrirCandidatosLive(L.perfil.segmento.id,L.perfil.segmento.nome,onStep); }catch(e){}
+  /* gaps de configuração: lacunas da loja que o tema atual já suporta na ficha, mas a loja não ativou.
+     Não contam como "ganho real" ao trocar de tema — o problema é configuração, não o tema.
+     Guardamos separado para poder avisar o vendedor sobre isso em montarFracos. */
+  const gapsConfigAtual = atualPag&&atualPag.verificado ? gaps.filter(g=>currentCobre(g)) : [];
+  /* gaps reais de tema: lacunas que o tema atual não cobre nem na ficha oficial */
+  const gapsReaisTema = atualPag&&atualPag.verificado ? gaps.filter(g=>!currentCobre(g)) : gaps;
+  // 2) DESCOBRE os candidatos AO VIVO na loja de temas — categoria + busca por segmento + busca por lacunas
+  if(onStep) onStep('Buscando temas do segmento na loja de temas (categoria + lacunas)…');
+  let candUrls=[]; try{ candUrls=await descobrirCandidatosLive(L.perfil.segmento.id,L.perfil.segmento.nome,gaps,onStep); }catch(e){}
   candUrls=candUrls.filter(u=>!(atualUrl&&u===atualUrl));
   let fonte='ao vivo';
-  if(onStep) onStep('Lendo a ficha oficial de '+Math.min(candUrls.length,8)+' temas do segmento…');
-  let caps=await Promise.all(candUrls.slice(0,8).map(u=>analisarTemaPagina({url:u})));
+  /* complementa com URLs do catálogo interno que ainda não estejam na lista — só como fonte de URL,
+     a ficha será lida ao vivo da mesma forma; nunca usa dado do catálogo sem verificação */
+  if(candUrls.length<10){
+    const segKey2=TEMA_MAP_SEG[L.perfil.segmento.id]||'geral';
+    const poolUrls=CATALOGO_TEMAS
+      .filter(t=>(t.seg===segKey2||t.seg==='geral')&&!ehAtual(t)&&t.url)
+      .map(t=>t.url)
+      .filter(u=>!candUrls.includes(u));
+    candUrls=[...candUrls,...poolUrls].slice(0,18);
+  }
+  if(onStep) onStep('Lendo a ficha oficial de '+Math.min(candUrls.length,14)+' temas…');
+  /* lê até 14 fichas em paralelo — mais que antes (era 8) para não perder boas opções no fim da lista */
+  let caps=await Promise.all(candUrls.slice(0,14).map(u=>analisarTemaPagina({url:u})));
   let itens=caps.filter(c=>c.verificado&&c.count!=null&&!ehAtual({n:c.nome,url:c.url})).map(c=>({t:capToTema(c,L.perfil.segmento.id),cap:c}));
-  // rede de segurança: se a loja de temas não respondeu o suficiente, complementa lendo a ficha do catálogo interno
+  /* rede de segurança: se verificados com count<3, tenta as URLs restantes do catálogo ao vivo
+     (nunca usa dado do catálogo como verdade — só a URL; a leitura ao vivo decide) */
   if(itens.length<3){
     fonte = itens.length?'ao vivo (parcial)':'referência';
-    const segKey=TEMA_MAP_SEG[L.perfil.segmento.id]||'geral';
-    let pool=CATALOGO_TEMAS.filter(t=>t.seg===segKey&&!ehAtual(t));
-    if(pool.length<6) pool=pool.concat(CATALOGO_TEMAS.filter(t=>t.seg==='geral'&&!ehAtual(t)));
-    const extra=await Promise.all(pool.slice(0,6).map(t=>analisarTemaPagina(t)));
-    extra.forEach((c,i)=>{ if(!itens.some(x=>norm(x.t.n)===norm(c.nome||pool[i].n))&&!ehAtual({n:c.nome||pool[i].n,url:c.url})){ if(c.verificado&&c.count!=null) itens.push({t:capToTema(c,L.perfil.segmento.id),cap:c}); } });
-    if(!itens.length){ pool.slice(0,6).forEach(t=>{ if(!ehAtual(t)) itens.push({t,cap:{verificado:false,count:null,total:null}}); }); }
+    const segKey2=TEMA_MAP_SEG[L.perfil.segmento.id]||'geral';
+    const urlsExtras=CATALOGO_TEMAS
+      .filter(t=>(t.seg===segKey2||t.seg==='geral')&&!ehAtual(t)&&t.url&&!candUrls.includes(t.url))
+      .map(t=>t.url).slice(0,8);
+    if(urlsExtras.length){
+      const capsExtra=await Promise.all(urlsExtras.map(u=>analisarTemaPagina({url:u})));
+      capsExtra.forEach(c=>{
+        if(c.verificado&&c.count!=null&&!ehAtual({n:c.nome,url:c.url})&&!itens.some(x=>norm(x.t.n)===norm(c.nome)))
+          itens.push({t:capToTema(c,L.perfil.segmento.id),cap:c});
+      });
+    }
+    /* último recurso: usa dados do catálogo sem verificação ao vivo, marcando claramente */
+    if(!itens.length){
+      CATALOGO_TEMAS.filter(t=>(t.seg===segKey2||t.seg==='geral')&&!ehAtual(t)).slice(0,6)
+        .forEach(t=>itens.push({t,cap:{verificado:false,count:null,total:null}}));
+    }
   }
   // 3) avalia pela contagem REAL de recursos + ganhos sobre o tema atual
+  // cobertas: candidato resolve lacunas de tema real (o atual não cobre na ficha)
+  // ganhosReais: subconjunto de cobertas que a loja ainda não exibe (confirma que a loja vai ganhar algo)
   const avaliados=itens.map(({t,cap})=>{
-    const cobertas=gaps.filter(g=>capCobre(cap,g));
-    const ganhosReais=cobertas.filter(g=>!currentCobre(g));
+    const cobertas=gapsReaisTema.filter(g=>capCobre(cap,g));
+    const ganhosReais=cobertas.filter(g=>!currentCobre(g)); // redundante após filtro acima, mas mantém semântica clara
     const count=(cap.verificado&&cap.count!=null)?cap.count:null;
     const podeComparar=(count!=null&&countAtual!=null);
     const maisRecursos=podeComparar?(count-countAtual):0;
@@ -1183,7 +1271,7 @@ async function recomendarTemas(L,onStep){
   tenta(elegiveis);
   const semUpgrade = (countAtual!=null) && !temUpgradeReal; // só afirma "sem upgrade" quando dá pra comparar
   if(escolhidos.length<3 && !temUpgradeReal) tenta(mesmoNivel); // completa com mesmo nível só quando não há upgrade real (nunca inferior)
-  const totalGaps=Math.max(1,gaps.length);
+  const totalGaps=Math.max(1,gapsReaisTema.length);
   const out=escolhidos.slice(0,3).map((r,i)=>{
     const tema=r.t;
     let base;
@@ -1198,7 +1286,7 @@ async function recomendarTemas(L,onStep){
       linkTema:r.cap.url||tema.url,
       motivo:justificarTema(L,tema,needs,r,countAtual), tagsRotulo:(tema.tags||[]).map(tg=>TAG_LIVE_ROTULO[tg]||TAG_ROTULO[tg]).filter(Boolean).slice(0,4), top:i===0};
   });
-  out.meta={semUpgrade, countAtual, totalAtual, fonte, temaAtual:L.temaAtual||null, atualPag:atualPag||null};
+  out.meta={semUpgrade, countAtual, totalAtual, fonte, temaAtual:L.temaAtual||null, atualPag:atualPag||null, gapsConfigAtual};
   return out;
 }
 function justificarTema(L,tema,needs,r,countAtual){
@@ -1211,9 +1299,16 @@ function justificarTema(L,tema,needs,r,countAtual){
     if(ganhos.length){ parts.push('Pela ficha oficial do tema'+(r.count!=null?' ('+r.count+(r.total?' de '+r.total:'')+' recursos da Tray)':'')+', ele adiciona '+listPt(ganhos.slice(0,3))+(ta&&ta.nome?' — que o '+ta.nome+' não entrega':'')+', resolvendo lacunas da loja.'); }
     else if(cob.length){ parts.push('Pela ficha oficial'+(r.count!=null?' ('+r.count+(r.total?' de '+r.total:'')+' recursos)':'')+', cobre '+listPt(cob.slice(0,3))+' — pontos que a loja não exibe hoje.'); }
     else { parts.push('Pela ficha oficial, traz uma base sólida de experiência'+(r.count!=null?' ('+r.count+(r.total?' de '+r.total:'')+' recursos da Tray)':'')+'.'); }
-    if((r.ganhosReais||[]).includes('freteProduto')) parts.push('Inclui o cálculo de frete e prazo na própria página do produto — e 47% abandonam ao ver o frete só no fim.');
-    else if((r.ganhosReais||[]).includes('avaliacoes')) parts.push('Traz avaliações no produto, que 64% checam antes de comprar em loja que não conhecem.');
-    else if((r.ganhosReais||[]).includes('filtros')||(r.ganhosReais||[]).includes('busca')) parts.push('Melhora a navegação por busca e filtros — navegação melhor pode elevar a conversão em até ~35%.');
+    // dado de mercado vinculado à lacuna de maior peso entre os ganhos reais deste tema
+    const gR=r.ganhosReais||[];
+    if(gR.includes('freteProduto')) parts.push('Inclui o cálculo de frete e prazo na própria página do produto — 93% dos brasileiros já deixaram de comprar por causa do frete e 47% abandonam ao vê-lo só no checkout (Octadesk/Opinion Box e Baymard, 2025).');
+    else if(gR.includes('avaliacoes')) parts.push('Traz avaliações no produto: 91% dos consumidores já desistiram após ler avaliação negativa e 7 em cada 10 dizem que elas decidem a compra — sem prova social, quem não conhece a marca não confia (Octadesk/Opinion Box, 2025).');
+    else if(gR.includes('filtros')||gR.includes('busca')) parts.push('Melhora a navegação com busca e filtros inteligentes — um checkout e uma navegação melhor podem elevar a conversão em até ~35%, segundo mais de 10 anos de testes de usabilidade (Baymard, 2025).');
+    else if(gR.includes('carrinhoLateral')) parts.push('Adiciona carrinho lateral (mini-cart): ao manter o cliente na página durante a adição de produtos, reduz o abandono — 70% dos carrinhos são abandonados antes do checkout (Baymard, 2025).');
+    else if(gR.includes('zoom')) parts.push('Inclui zoom e quickview no produto — 85% dos compradores já desistiram por medo de o produto não ser como descrito; foto e detalhe de alta qualidade são decisivos, especialmente em '+seg+' (Octadesk/Opinion Box, 2025).');
+    else if(gR.includes('destaques')||gR.includes('vitrines')) parts.push('Adiciona vitrines de destaques e mais vendidos na home — curadoria encurta a jornada de quem chega sem saber o que quer e puxa mais de um item por visita.');
+    else if(gR.includes('relacionados')) parts.push('Traz "compre junto" e produtos relacionados — mais itens por pedido é o jeito mais barato de crescer faturamento sem aumentar custo de aquisição.');
+    else if(gR.includes('submenu')) parts.push('Inclui menu com subcategorias — 66% pesquisam produtos nas redes e chegam à loja por categoria ou termo específico; um menu bem estruturado encaminha essa visita direto ao produto (Opinion Box, 2025).');
   } else {
     parts.push('Não foi possível ler a ficha oficial agora — pelo catálogo ele traz '+listPt(tema.tags.map(t=>lower1(TAG_ROTULO[t]||t)).slice(0,3))+'. Confirme os recursos na página do tema antes de fechar.');
   }
@@ -1330,9 +1425,12 @@ async function run(){
   }
   lines[3]={s:'load',t:'Lendo as fichas oficiais dos temas…'}; setStatus(lines);
   try{
-    const fortes=montarFortes(loja), fracos=montarFracos(loja), faltantes=montarFaltantes(loja);
-    const melhorias=montarMelhorias(loja,fracos);
+    const fortes=montarFortes(loja), faltantes=montarFaltantes(loja);
     const temas=await recomendarTemas(loja,(msg)=>{ lines[3]={s:'load',t:msg}; setStatus(lines); });
+    // montarFracos após recomendarTemas: recebe atualPag para distinguir problema de tema vs. configuração
+    const atualPagFinal=(temas.meta&&temas.meta.atualPag)||null;
+    const fracos=montarFracos(loja,atualPagFinal);
+    const melhorias=montarMelhorias(loja,fracos);
     const args=montarArgumentos(loja,temas,fracos), guia=montarGuia(loja,temas,fracos);
     state={loja,fortes,fracos,faltantes,melhorias,temas,args,guia,concl:''};
     const nVer=temas.filter(t=>t.verificado).length;
@@ -1388,11 +1486,12 @@ function render(){
     state.fortes.map(f=>'<div class="good"><h4><span class="m">✓</span>'+esc(f.titulo)+'</h4><p>'+esc(f.txt)+'</p></div>').join('')+'</div></div>'); }
 
   /* o que trava a conversão */
-  h.push('<div class="section"><div class="sec-title"><span class="kicker">2 · O que trava a conversão</span><h2>Onde a loja está perdendo venda</h2></div><p class="sec-sub">Cada ponto com a <b>evidência lida da loja</b>, o impacto na venda, o que resolve e o dado de mercado que dimensiona o problema.</p><div class="cards c2">'+
-   state.fracos.map(d=>'<div class="pain"><h4>'+esc(d.titulo)+'</h4>'+
+  h.push('<div class="section"><div class="sec-title"><span class="kicker">2 · O que trava a conversão</span><h2>Onde a loja está perdendo venda</h2></div><p class="sec-sub">Cada ponto com a <b>evidência lida da loja</b>, o impacto na venda, o que resolve e o dado de mercado que dimensiona o problema. Itens marcados como <b>ajuste de configuração</b> indicam que o tema atual já suporta o recurso — o problema é ativação, não troca de tema.</p><div class="cards c2">'+
+   state.fracos.map(d=>'<div class="pain'+(d.isConfig?' config-fix':'')+'">'+
+     (d.isConfig?'<div class="cfg-badge"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 20h9"/><path d="M16.5 3.5a2.121 2.121 0 0 1 3 3L7 19l-4 1 1-4L16.5 3.5z"/></svg>Ajuste de configuração — o tema atual já tem este recurso</div>':'')+'<h4>'+esc(d.titulo)+'</h4>'+
      (d.evidencias&&d.evidencias.length?'<div class="evlist"><span class="evk">Evidência na loja</span>'+d.evidencias.map(x=>'<span class="evchip">'+esc(x)+'</span>').join('')+'</div>':'<div class="why">'+esc(d.evidencia)+'</div>')+
      (d.impacto?'<div class="impacto"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M13 2L3 14h7l-1 8 10-12h-7z"/></svg>'+esc(d.impacto)+'</div>':'')+
-     '<div class="fix"><b>Como o tema resolve:</b> '+esc(d.solucao)+'</div>'+(d.bench?'<div class="mkt"><b>Dado de mercado:</b> '+esc(d.bench)+'</div>':'')+'</div>').join('')+'</div></div>');
+     '<div class="fix"><b>'+(d.isConfig?'Como ativar:':'Como o tema resolve:')+'</b> '+esc(d.solucao)+'</div>'+(d.bench?'<div class="mkt"><b>Dado de mercado:</b> '+esc(d.bench)+'</div>':'')+'</div>').join('')+'</div></div>');
 
   /* o que falta exibir — específicos do segmento em destaque */
   if(state.faltantes.total){ const fseg=state.faltantes.seg, fbase=state.faltantes.base; const segNome=L.perfil.segmento.nome;
