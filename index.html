@@ -272,6 +272,7 @@
   .sec-title.collap.open .chev{transform:rotate(180deg);border-color:var(--teal);color:var(--teal-deep);background:var(--teal-soft)}
   .coll-body[hidden]{display:none}
   .coll-peek{font-size:12.5px;color:var(--muted);margin:2px 0 0;width:100%}
+  .ver-stamp{text-align:center;font-size:10.5px;color:var(--miss);opacity:.6;margin:28px 0 4px;letter-spacing:.04em}
 </style>
 </head>
 <body>
@@ -330,6 +331,7 @@
   </div>
 </div>
 
+<p class="ver-stamp">v2.1.0 · Raio-X + Tema Ideal · Loja de Temas Tray</p>
 <p class="foot">O diagnóstico é montado a partir do que está visível no código público da loja no momento da análise. A recomendação de tema cruza o segmento detectado com as lacunas encontradas; os temas e valores vêm do catálogo da Loja de Temas Tray e podem mudar — confira sempre a página e a demonstração vigentes antes de fechar. Os dados de mercado citados são de referências públicas (Baymard Institute, Opinion Box/Octadesk, ABComm) e servem de apoio ao discurso, não como promessa de resultado.</p>
 
 <script>
@@ -349,8 +351,27 @@ const PROXIES=[
   u=>({url:"https://corsproxy.io/?url="+encodeURIComponent(u),json:false}),
   u=>({url:"https://api.codetabs.com/v1/proxy/?quest="+encodeURIComponent(u),json:false}),
   u=>({url:"https://api.allorigins.win/get?url="+encodeURIComponent(u),json:true}),
-  u=>({url:"https://thingproxy.freeboard.io/fetch/"+u,json:false})
+  u=>({url:"https://thingproxy.freeboard.io/fetch/"+u,json:false}),
+  u=>({url:"https://cors-anywhere.herokuapp.com/"+u,json:false}),
+  u=>({url:"https://proxy.cors.sh/"+u,json:false}),
+  u=>({url:"https://api.codetabs.com/v1/proxy?quest="+encodeURIComponent(u),json:false})
 ];
+/* embaralha array in-place (Fisher-Yates) — distribui carga entre relays */
+function shuffle(arr){ for(let i=arr.length-1;i>0;i--){ const j=Math.floor(Math.random()*(i+1)); [arr[i],arr[j]]=[arr[j],arr[i]]; } return arr; }
+/* tenta um único relay — resolve com texto ou rejeita */
+async function _tryRelay(build,url,timeout){
+  const cfg=build(url);
+  const ctl=new AbortController(); const t=setTimeout(()=>ctl.abort(),timeout);
+  try{
+    const res=await fetch(cfg.url,{signal:ctl.signal,headers:{'Accept':'text/html,application/xhtml+xml,application/xml,*/*'}});
+    clearTimeout(t);
+    if(!res.ok) throw new Error('HTTP '+res.status);
+    let txt=await res.text();
+    if(cfg.json){ try{ const j=JSON.parse(txt); txt=j.contents||j.data||''; }catch(e){ txt=''; } }
+    if(!txt||txt.length<300) throw new Error('resposta curta');
+    return txt;
+  }catch(e){ clearTimeout(t); throw e; }
+}
 function deaccent(s){ return (s||"").normalize('NFD').replace(/[\u0300-\u036f]/g,''); }
 function norm(s){ return deaccent((s||"").toLowerCase()).replace(/\s+/g,' ').trim(); }
 function esc(s){ return (s==null?'':String(s)).replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c])); }
@@ -708,21 +729,38 @@ function acharLinksProduto(html,origin,max){
   return out.slice(0,max);
 }
 /* ---------- 3. leitura das páginas ---------- */
-async function fetchText(url,timeout=20000){
-  let lastErr=null;
-  for(const build of PROXIES){
-    const cfg=build(url);
-    try{
-      const ctl=new AbortController(); const t=setTimeout(()=>ctl.abort(),timeout);
-      const res=await fetch(cfg.url,{signal:ctl.signal,headers:{'Accept':'text/html,application/xhtml+xml,application/xml,*/*'}}); clearTimeout(t);
-      if(!res.ok){ lastErr=new Error('HTTP '+res.status); continue; }
-      let txt=await res.text();
-      if(cfg.json){ try{ const j=JSON.parse(txt); txt=j.contents||j.data||''; }catch(e){ txt=''; } }
-      if(txt&&txt.length>300) return txt;
-      lastErr=new Error('resposta curta');
-    }catch(e){ lastErr=e; }
+/* fetchText — corrida paralela com embaralhamento, retry e fallback Jina.
+   timeout por relay: 12 s (era 20 s sequencial, agora em paralelo é mais que suficiente).
+   Fluxo: embaralha pool → dispara todos ao mesmo tempo → primeiro válido vence →
+          se todos falharem: aguarda 2 s e retenta com nova ordem →
+          se ainda falhar: tenta r.jina.ai (renderiza a página, mais estável). */
+async function fetchText(url,timeout=12000){
+  async function racePool(pool){
+    return new Promise((resolve,reject)=>{
+      let falhas=0; const total=pool.length;
+      if(!total){ reject(new Error('pool vazio')); return; }
+      pool.forEach(build=>{
+        _tryRelay(build,url,timeout)
+          .then(txt=>resolve(txt))
+          .catch(()=>{ falhas++; if(falhas===total) reject(new Error('todos os relays falharam')); });
+      });
+    });
   }
-  throw lastErr||new Error('falha na leitura');
+  /* 1ª tentativa: pool embaralhado */
+  const pool1=shuffle([...PROXIES]);
+  try{ return await racePool(pool1); }catch(e){}
+  /* 2ª tentativa: aguarda 2 s (dá tempo do rate-limit esfriar) e tenta nova ordem */
+  await new Promise(r=>setTimeout(r,2000));
+  const pool2=shuffle([...PROXIES]);
+  try{ return await racePool(pool2); }catch(e){}
+  /* Fallback final: r.jina.ai — renderiza a página, mais resiliente */
+  try{
+    const ctl=new AbortController(); const t=setTimeout(()=>ctl.abort(),18000);
+    const res=await fetch('https://r.jina.ai/'+url,{signal:ctl.signal,headers:{'Accept':'text/html,*/*','X-Return-Format':'html'}});
+    clearTimeout(t);
+    if(res.ok){ const txt=await res.text(); if(txt&&txt.length>300) return txt; }
+  }catch(e){}
+  throw new Error('falha na leitura — todos os relays e o fallback falharam');
 }
 async function sondar(origin){
   const out={robots:false,sitemap:false,urls:0,produtos:0,categorias:0,blog:false,sitemapsLidos:0,parcial:false,produtoUrl:''};
