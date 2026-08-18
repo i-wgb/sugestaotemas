@@ -273,6 +273,38 @@
   .coll-body[hidden]{display:none}
   .coll-peek{font-size:12.5px;color:var(--muted);margin:2px 0 0;width:100%}
   .ver-stamp{text-align:center;font-size:10.5px;color:var(--miss);opacity:.6;margin:28px 0 4px;letter-spacing:.04em}
+  /* diagnóstico UI/UX/Mobile */
+  .ux-grid{display:grid;gap:16px}
+  @media(min-width:860px){.ux-grid{grid-template-columns:repeat(3,1fr)}}
+  .ux-card{background:var(--surface);border:1px solid var(--line);border-radius:14px;box-shadow:var(--shadow);overflow:hidden}
+  .ux-head{padding:14px 16px 10px;display:flex;align-items:center;gap:10px;border-bottom:1px solid var(--line-2)}
+  .ux-head .ux-icon{width:34px;height:34px;border-radius:9px;display:grid;place-items:center;font-size:17px;flex:none}
+  .ux-head .ux-icon.ui{background:#EDE9FE;color:#6D28D9}
+  .ux-head .ux-icon.ux{background:#DBEAFE;color:#1D4ED8}
+  .ux-head .ux-icon.mob{background:#DCFCE7;color:#16A34A}
+  .ux-head .ux-meta{flex:1}
+  .ux-head .ux-meta h4{margin:0 0 2px;font-size:14px;letter-spacing:-.01em}
+  .ux-head .ux-meta .ux-sub{font-size:11px;color:var(--muted)}
+  .ux-nota{font-family:'Satoshi';font-size:18px;font-weight:700;flex:none}
+  .ux-nota.hi{color:var(--green)} .ux-nota.mid{color:var(--amber)} .ux-nota.lo{color:var(--red)}
+  .ux-body{padding:12px 16px;display:flex;flex-direction:column;gap:7px}
+  .ux-item{display:flex;gap:8px;font-size:12.5px;line-height:1.4}
+  .ux-item.ok{color:var(--ink-2)} .ux-item.gap{color:#9A423C}
+  .ux-item .ic{flex:none;margin-top:1px;font-size:11px}
+  .ux-tema-grid{display:grid;gap:10px;margin-top:10px}
+  @media(min-width:700px){.ux-tema-grid{grid-template-columns:repeat(3,1fr)}}
+  .ux-tema-card{background:var(--surface-2);border:1px solid var(--line);border-radius:10px;padding:10px 12px}
+  .ux-tema-card .utc-title{font-size:11px;font-weight:700;letter-spacing:.04em;text-transform:uppercase;color:var(--muted);margin-bottom:7px}
+  .ux-tema-card .utc-nota{font-size:14px;font-weight:700;margin-bottom:6px}
+  .ux-tema-card .utc-nota.hi{color:var(--green)} .utc-nota.mid{color:var(--amber)} .utc-nota.lo{color:var(--red)}
+  .ux-tema-card ul{margin:0;padding:0;list-style:none;display:flex;flex-direction:column;gap:4px}
+  .ux-tema-card li{font-size:11.5px;color:var(--ink-2);display:flex;gap:6px;line-height:1.35}
+  .ux-tema-card li.ok{color:var(--green)} .ux-tema-card li.gap{color:var(--red)}
+  /* faixa de preço badge */
+  .faixa-badge{display:inline-flex;align-items:center;gap:5px;font-size:10.5px;font-weight:700;letter-spacing:.04em;text-transform:uppercase;padding:3px 9px;border-radius:999px;margin-bottom:6px}
+  .faixa-badge.entrada{background:#E6F6EE;color:#16A34A;border:1px solid #BCE6CE}
+  .faixa-badge.intermediario{background:#DBEAFE;color:#1D4ED8;border:1px solid #BFDBFE}
+  .faixa-badge.premium{background:#FEF3C7;color:#92400E;border:1px solid #FDE68A}
 </style>
 </head>
 <body>
@@ -331,7 +363,7 @@
   </div>
 </div>
 
-<p class="ver-stamp">v2.4.0 · Raio-X + Tema Ideal · Loja de Temas Tray</p>
+<p class="ver-stamp">v2.5.0 · Raio-X + Tema Ideal · Loja de Temas Tray</p>
 <p class="foot">O diagnóstico é montado a partir do que está visível no código público da loja no momento da análise. A recomendação de tema cruza o segmento detectado com as lacunas encontradas; os temas e valores vêm do catálogo da Loja de Temas Tray e podem mudar — confira sempre a página e a demonstração vigentes antes de fechar. Os dados de mercado citados são de referências públicas (Baymard Institute, Opinion Box/Octadesk, ABComm) e servem de apoio ao discurso, não como promessa de resultado.</p>
 
 <script>
@@ -1559,12 +1591,33 @@ async function recomendarTemas(L,onStep){
   const temUpgradeReal=topAvaliados.some(r=>r.ehUpgrade);
   const elegiveis=topAvaliados.filter(r=>r.naoInferior && r.melhor);
   const mesmoNivel=topAvaliados.filter(r=>r.naoInferior && !r.melhor);
-  const escolhidos=[]; const faixas=new Set();
-  const tenta=(lista)=>{ for(const r of lista){ if(escolhidos.length>=3) break; if(escolhidos.includes(r)) continue; const fx=faixaTema(r.t.preco);
-      if(escolhidos.length<2 || !faixas.has(fx) || escolhidos.length===2){ escolhidos.push(r); faixas.add(fx); } } };
-  tenta(elegiveis);
+  /* RATING DE PREÇO — garante diversidade obrigatória: 1 básico, 1 intermediário, 1 premium.
+     Prioridade: primeiro preenche com os melhores upgrades por faixa; se uma faixa não tem
+     upgrade elegível, entra o melhor disponível daquela faixa sem exigir upgrade. */
+  const porFaixa=(lista,fx)=>lista.filter(r=>faixaTema(r.t.preco)===fx);
+  const melhorDe=(lista)=>lista.length?lista[0]:null;
   const semUpgrade = (countAtual!=null) && !temUpgradeReal;
-  if(escolhidos.length<3 && !temUpgradeReal) tenta(mesmoNivel);
+  // monta pool estendido para preencher faixas: elegiveis primeiro, depois mesmoNivel
+  const poolExtendido=[...elegiveis,...mesmoNivel.filter(r=>!elegiveis.includes(r))];
+  const escolhidos=[];
+  // 1) básico
+  const basico=melhorDe(porFaixa(elegiveis,'entrada'))||melhorDe(porFaixa(poolExtendido,'entrada'));
+  if(basico) escolhidos.push(basico);
+  // 2) intermediário
+  const inter=melhorDe(porFaixa(elegiveis,'intermediario').filter(r=>!escolhidos.includes(r)))||
+               melhorDe(porFaixa(poolExtendido,'intermediario').filter(r=>!escolhidos.includes(r)));
+  if(inter) escolhidos.push(inter);
+  // 3) premium
+  const prem=melhorDe(porFaixa(elegiveis,'premium').filter(r=>!escolhidos.includes(r)))||
+              melhorDe(porFaixa(poolExtendido,'premium').filter(r=>!escolhidos.includes(r)));
+  if(prem) escolhidos.push(prem);
+  // fallback: se alguma faixa não tiver nenhum tema, completa com os melhores restantes
+  if(escolhidos.length<3){
+    for(const r of poolExtendido){ if(escolhidos.length>=3) break; if(!escolhidos.includes(r)) escolhidos.push(r); }
+  }
+  // reordena: melhor upgrade primeiro (maior sc), depois por faixa de preço
+  escolhidos.sort((a,b)=>{ const fa=faixaTema(a.t.preco),fb=faixaTema(b.t.preco);
+    const ordem={entrada:0,intermediario:1,premium:2}; return (ordem[fa]||0)-(ordem[fb]||0); });
 
   const totalGaps=Math.max(1,gapsReaisTema.length);
   const out=escolhidos.slice(0,3).map((r,i)=>{
@@ -1684,6 +1737,140 @@ function montarGuia(L,temas,fracos){
     'Envie o PDF no fim, nunca no começo — se recebe antes, ele para de ouvir e começa a ler.']});
   return {steps};
 }
+
+/* ---------- 5b. Diagnóstico UI/UX/Mobile ---------- */
+function montarUXDiag(L){
+  const e=L.exp, c=L.convSig, t=L.trustSig, tec=L.tec, s=L.seo;
+  const dom_=L._dom; // referência ao DOM parseado (passado via L._dom se disponível)
+
+  /* ── UI: Identidade Visual e Posicionamento ── */
+  const ui={pontos:[],melhorias:[]};
+  // Hierarquia visual — título de página adequado
+  if(s.tituloOk) ui.pontos.push('Título de página com tamanho adequado ('+s.titulo.length+' caracteres) — boa hierarquia de SEO e identidade.');
+  else ui.melhorias.push('Título de página fora da faixa ideal ('+(s.titulo||'não encontrado').length+' caracteres) — afeta identidade na aba e no Google; ideal entre 20 e 70 caracteres.');
+  // Open Graph — compartilhamento social
+  if(s.og) ui.pontos.push('Imagem e título de compartilhamento (Open Graph) configurados — a loja aparece bem quando linkada nas redes.');
+  else ui.melhorias.push('Sem configuração de Open Graph detectada — links da loja nas redes aparecem sem imagem e sem título formatado, passando imagem amadora.');
+  // Vitrine de destaques
+  if(c.destaques) ui.pontos.push('Vitrine de destaques ou mais vendidos presente na home — curadoria visual que orienta o cliente ao entrar.');
+  else ui.melhorias.push('Sem vitrine de destaques na home — o cliente entra sem referência visual de onde começar, aumentando a taxa de saída imediata.');
+  // Frete grátis em destaque
+  if(c.freteGratis) ui.pontos.push('Frete grátis sinalizado na vitrine — elemento visual de conversão em posição relevante.');
+  else ui.melhorias.push('Frete grátis não identificado em destaque — se existir, colocar em banner ou barra fixa no topo aumenta a percepção de valor imediatamente.');
+  // Selos e confiança visual
+  if(t.selo||t.cnpj||t.reclameAqui) ui.pontos.push('Elementos de confiança visual presentes (selo, CNPJ ou Reclame Aqui) — reduzem o abandono de quem ainda não conhece a marca.');
+  else ui.melhorias.push('Ausência de selos, CNPJ ou Reclame Aqui visíveis — para quem chega pela primeira vez, a loja parece menos confiável; 93% já desistiram de comprar por suspeita de fraude.');
+  // Menu com categorias
+  if(e.itensMenu&&e.itensMenu.length>=4) ui.pontos.push('Menu com '+e.itensMenu.length+' categorias identificadas ('+e.itensMenu.slice(0,3).join(', ')+'…) — boa organização de navegação.');
+  else ui.melhorias.push('Menu com poucas categorias visíveis — arquitetura de informação fraca dificulta a descoberta de produtos e aumenta o abandono.');
+  // Submenu
+  if(e.submenu) ui.pontos.push('Submenu ou mega-menu detectado — facilita a navegação em catálogos mais amplos.');
+  else if(L.perfil.produtos>100) ui.melhorias.push('Sem submenu detectado com '+L.perfil.produtos+' produtos no catálogo — hierarquia de categorias ajuda o cliente a não se perder.');
+  const uiNota=Math.round(Math.min(100,Math.max(0,(ui.pontos.length/(ui.pontos.length+ui.melhorias.length||1))*100)));
+
+  /* ── UX: Experiência de Navegação e Fricção ── */
+  const ux={pontos:[],melhorias:[]};
+  // Busca com sugestão
+  if(e.busca) ux.pontos.push('Campo de busca identificado na interface — quem usa a busca tem intenção de compra alta e converte mais.');
+  else ux.melhorias.push('Busca com sugestão não encontrada na barra de navegação — quem busca um produto específico não tem atalho e abandona antes de encontrar.');
+  // Filtros inteligentes (devem aparecer em categoria/busca, não na home)
+  if(e.filtros) ux.pontos.push('Elementos de filtro ou ordenação detectados nas páginas de categoria/busca — reduz o esforço de encontrar o produto certo.');
+  else ux.melhorias.push('Filtro inteligente não detectado nas páginas de categoria — catálogos sem filtro viram labirinto; a navegação melhora até 35% com filtros por atributo (Baymard, 2025).');
+  // Carrinho lateral
+  if(e.carrinhoLateral) ux.pontos.push('Carrinho lateral (mini-cart) confirmado como elemento real no DOM — o cliente adiciona produtos sem sair da página, reduzindo o abandono.');
+  else ux.melhorias.push('Sem carrinho lateral detectado — cada adição de produto interrompe o fluxo de compra; 70% dos carrinhos são abandonados antes do checkout (Baymard, 2025).');
+  // Avaliações (devem estar na página de produto)
+  if(t.avaliacoes) ux.pontos.push('Sistema de avaliações detectado na página de produto — prova social que 7 em cada 10 compradores consultam antes de comprar em loja nova.');
+  else ux.melhorias.push('Avaliações de clientes não encontradas na página de produto — ausência de prova social é o principal gatilho de desconfiança em loja desconhecida.');
+  // Compre junto / relacionados (página de produto)
+  if(c.relacionados) ux.pontos.push('Produtos relacionados ou "compre junto" detectados com conteúdo real — aumenta o valor por pedido sem custo de aquisição.');
+  else ux.melhorias.push('"Compre junto" e relacionados não encontrados na página de produto — perda direta de receita: mais itens por pedido é o crescimento de menor custo.');
+  // Política de troca visível
+  if(t.politicaTroca) ux.pontos.push('Link de política de troca/devolução encontrado — reduz o risco percebido na hora de fechar a compra.');
+  else ux.melhorias.push('Política de troca e devolução não encontrada no rodapé — a ausência é interpretada como risco pelo comprador, especialmente em moda e eletrônicos.');
+  // WhatsApp
+  if(t.whatsapp) ux.pontos.push('Link de WhatsApp ativo encontrado na loja — canal direto onde dúvida vira venda no Brasil.');
+  else ux.melhorias.push('Atendimento por WhatsApp não encontrado — perda do canal onde a maioria das dúvidas de compra é resolvida no Brasil.');
+  const uxNota=Math.round(Math.min(100,Math.max(0,(ux.pontos.length/(ux.pontos.length+ux.melhorias.length||1))*100)));
+
+  /* ── Mobile: Desempenho e Usabilidade Mobile-First ── */
+  const mob={pontos:[],melhorias:[]};
+  // Viewport
+  if(tec.viewport) mob.pontos.push('Meta viewport configurada — o layout se adapta ao tamanho do celular.');
+  else mob.melhorias.push('Meta viewport ausente — a loja não se adapta ao celular, onde 73% dos brasileiros preferem comprar; CTAs ficam pequenos e inacessíveis.');
+  // Velocidade
+  if(tec.velocidade==='rápida') mob.pontos.push('Home leve (~'+tec.pesoKb+' KB, '+tec.scripts+' scripts) — carregamento rápido, especialmente em conexões móveis.');
+  else if(tec.velocidade==='lenta') mob.melhorias.push('Home pesada (~'+tec.pesoKb+' KB, '+tec.scripts+' scripts) — cada segundo extra de carregamento aumenta o abandono em ~32% no mobile; otimizar imagens e scripts é urgente.');
+  else mob.pontos.push('Performance mediana (~'+tec.pesoKb+' KB) — aceitável, mas há margem para melhorar a velocidade no mobile.');
+  // Lazy load
+  if(tec.lazy) mob.pontos.push('Lazy loading de imagens detectado — imagens carregam sob demanda, acelerando a percepção de velocidade no celular.');
+  else mob.melhorias.push('Sem lazy loading detectado — todas as imagens carregam de uma vez; no mobile isso atrasa o conteúdo visível e aumenta o abandono.');
+  // WebP
+  if(tec.webp) mob.pontos.push('Imagens em formato WebP detectadas — formato moderno que reduz o peso das imagens sem perda de qualidade visível.');
+  else mob.melhorias.push('Imagens não estão em WebP — conversão para WebP reduz o peso em até 30% sem perda visual, melhorando a velocidade especialmente no 4G.');
+  // Menu mobile
+  if(e.menuMobile) mob.pontos.push('Menu mobile (hamburger/toggle) identificado — navegação por categorias acessível no celular.');
+  else mob.melhorias.push('Menu mobile não detectado — sem toggle de menu no celular, o cliente não encontra as categorias e não navega.');
+  // Pix (relevante no mobile — preferido)
+  if(c.pix) mob.pontos.push('Pix visível na vitrine — meio preferido em compras pelo celular (41% dos pagamentos mobile, Banco Central 2025).');
+  else mob.melhorias.push('Pix não identificado na vitrine — quem compra pelo celular quer pagar em um toque; a ausência visível do Pix pode desistir a compra.');
+  const mobNota=Math.round(Math.min(100,Math.max(0,(mob.pontos.length/(mob.pontos.length+mob.melhorias.length||1))*100)));
+
+  return {ui,ux,mob,uiNota,uxNota,mobNota,
+    notaGeral:Math.round((uiNota+uxNota+mobNota)/3)};
+}
+
+/* análise UI/UX/Mobile de um tema candidato a partir dos dados da demo */
+function montarUXTema(cap,demo,demoLida){
+  const ui={pontos:[],melhorias:[]};
+  const ux={pontos:[],melhorias:[]};
+  const mob={pontos:[],melhorias:[]};
+
+  // UI — o que a ficha declara
+  if(cap.vitrines||cap.destaques) ui.pontos.push('Vitrines de destaque e lançamentos na home — hierarquia visual clara ao entrar.');
+  else ui.melhorias.push('Sem vitrines de destaque declaradas na ficha — home pode parecer catálogo genérico sem curadoria visual.');
+  if(cap.carrinhoLateral) ui.pontos.push('Carrinho lateral (mini-cart) na ficha — mantém o cliente na página ao adicionar itens.');
+  else ui.melhorias.push('Carrinho lateral não declarado — o fluxo de adição de produtos interrompe a navegação.');
+  if(cap.zoom||cap.quickview) ui.pontos.push('Zoom e/ou quickview no produto — detalhe visual que aumenta a confiança de compra, especialmente em moda e joias.');
+  else ui.melhorias.push('Zoom e quickview não declarados na ficha — o cliente não consegue ver o detalhe do produto antes de comprar.');
+  if(cap.tabelaMedidas) ui.pontos.push('Tabela de medidas declarada — reduz dúvidas de tamanho, principal causa de abandono em moda.');
+  if(cap.newsletter) ui.pontos.push('Captura de e-mail/newsletter — construção de base própria para remarketing.');
+
+  // UX — recursos verificados preferencialmente na demo
+  const temFiltro=demoLida?(demo.filtros===true):(cap.filtros);
+  const temBusca=demoLida?(demo.busca===true):(cap.busca);
+  const temAval=demoLida?(demo.avaliacoes===true):(cap.avaliacoes);
+  const temRel=demoLida?(demo.relacionados===true):(cap.relacionados||cap.compreJunto);
+  const temDest=demoLida?(demo.destaques===true):(cap.destaques);
+  const temFrete=demoLida?(demo.freteProduto===true):(cap.freteProduto);
+  const temCart=demoLida?(demo.carrinhoLateral===true):(cap.carrinhoLateral);
+
+  if(temBusca) ux.pontos.push('Busca com sugestão'+(demoLida?' confirmada na demo':'declarada na ficha')+' — atalho direto para quem sabe o que quer.');
+  else ux.melhorias.push('Busca com sugestão não '+(demoLida?'encontrada na demo':'declarada na ficha')+' — quem busca um produto específico perde o atalho.');
+  if(temFiltro) ux.pontos.push('Filtro inteligente'+(demoLida?' confirmado na demo':'declarado na ficha')+' — navegação por atributo, preço e categoria.');
+  else ux.melhorias.push('Filtro inteligente não '+(demoLida?'encontrado na demo':'declarado na ficha')+' — catálogos sem filtro viram labirinto.');
+  if(temAval) ux.pontos.push('Avaliações no produto'+(demoLida?' confirmadas na demo':'declaradas na ficha')+' — prova social no momento da decisão de compra.');
+  else ux.melhorias.push('Avaliações não '+(demoLida?'encontradas na demo':'declaradas na ficha')+' — sem prova social, quem não conhece a marca hesita.');
+  if(temRel) ux.pontos.push('"Compre junto" / relacionados'+(demoLida?' confirmados na demo':'declarados na ficha')+' — empurra mais itens por pedido.');
+  else ux.melhorias.push('"Compre junto" não '+(demoLida?'encontrado na demo':'declarado na ficha')+' — oportunidade de receita por pedido não aproveitada.');
+  if(temFrete) ux.pontos.push('Cálculo de frete na página do produto'+(demoLida?' confirmado na demo':'declarado na ficha')+' — elimina a surpresa que faz 47% abandonarem no checkout.');
+  else ux.melhorias.push('Cálculo de frete na página do produto não '+(demoLida?'encontrado na demo':'declarado na ficha')+' — cliente só descobre o frete no checkout.');
+  if(temCart) ux.pontos.push('Carrinho lateral'+(demoLida?' confirmado na demo':'declarado na ficha')+' — adição de produto sem sair da página.');
+  else ux.melhorias.push('Carrinho lateral não '+(demoLida?'encontrado na demo':'declarado na ficha')+' — cada adição interrompe o fluxo de compra.');
+
+  // Mobile
+  if(cap.mobile) mob.pontos.push('Tema declarado como responsivo e mobile-first na ficha oficial.');
+  else mob.melhorias.push('Responsividade mobile não declarada explicitamente na ficha — verificar na demonstração.');
+  if(temDest) mob.pontos.push('Vitrines'+(demoLida?' confirmadas na demo':'declaradas na ficha')+' — curadoria visual que funciona bem na rolagem do celular.');
+  if(cap.zoom||cap.quickview) mob.pontos.push('Zoom/quickview declarado — essencial no celular onde não há hover.');
+  else mob.melhorias.push('Sem zoom ou quickview declarado — no celular o cliente não tem hover; zoom por toque é o substituto essencial para ver detalhes do produto.');
+
+  const uiN=Math.round(Math.min(100,Math.max(0,(ui.pontos.length/(ui.pontos.length+ui.melhorias.length||1))*100)));
+  const uxN=Math.round(Math.min(100,Math.max(0,(ux.pontos.length/(ux.pontos.length+ux.melhorias.length||1))*100)));
+  const mobN=Math.round(Math.min(100,Math.max(0,(mob.pontos.length/(mob.pontos.length+mob.melhorias.length||1))*100)));
+  return {ui,ux,mob,uiNota:uiN,uxNota:uxN,mobNota:mobN,notaGeral:Math.round((uiN+uxN+mobN)/3)};
+}
+
 /* ---------- 8. fluxo e render ---------- */
 let state={loja:null,fortes:[],fracos:[],faltantes:[],melhorias:[],temas:[],args:null,guia:null,concl:''};
 let vendedor={nome:'',fone:''};
@@ -1739,7 +1926,8 @@ async function run(){
     const fracos=montarFracos(loja,atualPagFinal);
     const melhorias=montarMelhorias(loja,fracos);
     const args=montarArgumentos(loja,temas,fracos), guia=montarGuia(loja,temas,fracos);
-    state={loja,fortes,fracos,faltantes,melhorias,temas,args,guia,concl:''};
+    const uxDiag=montarUXDiag(loja);
+    state={loja,fortes,fracos,faltantes,melhorias,temas,args,guia,uxDiag,concl:''};
     const nVer=temas.filter(t=>t.verificado).length;
     lines[3]={s:'ok',t:'Temas recomendados ('+nVer+'/'+temas.length+' confirmados na demo): '+temas.map(t=>t.tema.n).join(' · ')}; setStatus(lines);
     setTimeout(()=>{ statusEl.className='status'; statusEl.innerHTML=''; },700);
@@ -1816,6 +2004,35 @@ function render(){
    '<div class="card"><div class="ck">Porte e catálogo</div><h4>'+cap(L.perfil.porte)+'</h4><div class="kv" style="margin-top:10px"><div class="line"><span class="k">Produtos'+(L.seo.produtosFonte==='sitemap'?' (sitemap)':' (home)')+'</span><span class="v">'+(L.perfil.produtos||'—')+'</span></div><div class="line"><span class="k">Categorias</span><span class="v">'+(L.seo.categoriasEstimadas||'—')+'</span></div><div class="line"><span class="k">Ticket aparente</span><span class="v">'+(pr.ok?brl(pr.mediana)+' ('+L.perfil.ticket+')':L.perfil.ticket)+'</span></div></div></div>'+
    '<div class="card"><div class="ck">Meios de pagamento na vitrine</div>'+chipsHtml(L.exp.pagamentos)+'<div class="ck" style="margin-top:12px">Frete e entrega</div>'+chipsHtml(L.exp.frete)+'</div></div></div>');
 
+  /* diagnóstico UI/UX/Mobile — nova seção */
+  function uxNotaCor(n){ return n>=70?'hi':n>=45?'mid':'lo'; }
+  function uxCardHtml(icCls,icEmoji,titulo,sub,nota,pontos,melhorias){
+    const cor=uxNotaCor(nota);
+    const items=[
+      ...pontos.map(p=>'<div class="ux-item ok"><span class="ic">✓</span><span>'+esc(p)+'</span></div>'),
+      ...melhorias.map(m=>'<div class="ux-item gap"><span class="ic">!</span><span>'+esc(m)+'</span></div>')
+    ].join('');
+    return '<div class="ux-card">'+
+      '<div class="ux-head">'+
+        '<div class="ux-icon '+icCls+'">'+icEmoji+'</div>'+
+        '<div class="ux-meta"><h4>'+esc(titulo)+'</h4><span class="ux-sub">'+esc(sub)+'</span></div>'+
+        '<span class="ux-nota '+cor+'">'+nota+'</span>'+
+      '</div>'+
+      '<div class="ux-body">'+items+'</div>'+
+    '</div>';
+  }
+  if(state.uxDiag){
+    const ud=state.uxDiag;
+    h.push('<div class="section"><div class="sec-title"><span class="kicker">5 · UI / UX / Mobile</span>'+
+      '<h2>Diagnóstico de Eficiência e Arquitetura de Vendas</h2></div>'+
+      '<p class="sec-sub">Avaliação da identidade visual, da experiência de navegação e do desempenho mobile — baseada no que foi lido diretamente do código da loja.</p>'+
+      '<div class="ux-grid">'+
+        uxCardHtml('ui','🎨','Identidade Visual e Posicionamento','Padronização, hierarquia, vitrines e confiança',ud.uiNota,ud.ui.pontos,ud.ui.melhorias)+
+        uxCardHtml('ux','🧭','Experiência de Navegação e Fricção','Página de produto, carrinho, prova social',ud.uxNota,ud.ux.pontos,ud.ux.melhorias)+
+        uxCardHtml('mob','📱','Desempenho e Usabilidade Mobile','Responsividade, CTAs e velocidade de carregamento',ud.mobNota,ud.mob.pontos,ud.mob.melhorias)+
+      '</div></div>');
+  }
+
   /* temas recomendados */
   const meta=state.temas.meta||{};
   const taNome=meta.temaAtual&&meta.temaAtual.nome?meta.temaAtual.nome:'';
@@ -1861,6 +2078,18 @@ function render(){
   resultsEl.innerHTML=h.join(''); resultsEl.className='on'; wireResults();
 }
 function temaCardHtml(r){ const t=r.tema; const gratis=!t.preco||t.preco<=0; const parcela=t.preco/12; const linkTema=r.linkTema||t.url;
+  const fxLabel={entrada:'Básico',intermediario:'Intermediário',premium:'Premium'};
+  const fxBadge='<span class="faixa-badge '+r.faixa+'">'+(fxLabel[r.faixa]||r.faixa)+'</span>';
+  const uxT=montarUXTema(r.cap||{},r._demo||{},!!r.demoLida);
+  function uxNotaCor2(n){ return n>=70?'hi':n>=45?'mid':'lo'; }
+  const uxTemaHtml='<div class="ux-tema-grid">'+
+    ['ui','ux','mob'].map((k,i)=>{
+      const labels=['UI','UX','Mobile'];
+      const d=uxT[k]; const nota=uxT[k+'Nota'];
+      const items=[...d.pontos.map(p=>'<li class="ok">✓ '+esc(p)+'</li>'),...d.melhorias.map(m=>'<li class="gap">! '+esc(m)+'</li>')].join('');
+      return '<div class="ux-tema-card"><div class="utc-title">'+labels[i]+'</div><div class="utc-nota '+uxNotaCor2(nota)+'">'+nota+'/100</div><ul>'+items+'</ul></div>';
+    }).join('')+
+  '</div>';
   const precoHtml = gratis
     ? '<div class="p">Grátis<small>tema gratuito</small></div>'
     : '<div class="p">'+brl(t.preco)+'<small>ou 12x de '+brl(parcela)+'</small></div>';
@@ -1882,12 +2111,12 @@ function temaCardHtml(r){ const t=r.tema; const gratis=!t.preco||t.preco<=0; con
   else if(r.verificado && r.extrasDemo && r.extrasDemo.length){ conf='<div class="conf"><span class="cl">Recursos confirmados na ficha:</span><div class="ctags">'+r.extrasDemo.map(c=>'<span class="ct yes">✓ '+esc(cap(c))+'</span>').join('')+'</div></div>'; }
   return '<div class="theme '+(r.top?'top':'')+'">'+(r.top?'<span class="flag"><svg width="11" height="11" viewBox="0 0 24 24" fill="#fff"><path d="M3 7l4 4 5-7 5 7 4-4-2 12H5z"/></svg>Mais aderente</span>':'')+
     (r.ehUpgrade?'<span class="flag up"><svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><path d="M12 19V5M5 12l7-7 7 7"/></svg>Upgrade</span>':'')+
-    '<div class="thead"><div class="cat">'+esc(cap(t.seg==='geral'?'Versátil':(SEGMENTOS.find(s=>s.id===t.seg)||{}).nome||t.seg))+'</div><h3>'+esc(t.n)+'</h3><div class="dev">por '+esc(t.dev)+(t.dia?'<span class="pill">Diamante</span>':'')+'</div></div>'+
+    '<div class="thead">'+fxBadge+'<div class="cat">'+esc(cap(t.seg==='geral'?'Versátil':(SEGMENTOS.find(s=>s.id===t.seg)||{}).nome||t.seg))+'</div><h3>'+esc(t.n)+'</h3><div class="dev">por '+esc(t.dev)+(t.dia?'<span class="pill">Diamante</span>':'')+'</div></div>'+
     '<div class="match">'+ringMatch(r.match)+'<div class="ml"><b>'+r.match+'% de aderência</b><span>ao caso desta loja</span></div></div>'+
     selo+selloDemo+
     '<div class="body"><div class="why">'+esc(r.motivo)+'</div>'+conf+'<div class="tags">'+r.tagsRotulo.map(tg=>'<span class="tg">'+esc(tg)+'</span>').join('')+'</div>'+
     '<div class="price">'+precoHtml+'<div class="once">compra única<br/>sem mensalidade</div></div></div>'+
-    '<div class="links"><a class="demo" href="'+esc(t.demo)+'" target="_blank" rel="noopener">Ver demonstração</a><a class="pg" href="'+esc(linkTema)+'" target="_blank" rel="noopener">Página do tema</a></div></div>'; }
+    uxTemaHtml+'<div class="links"><a class="demo" href="'+esc(t.demo)+'" target="_blank" rel="noopener">Ver demonstração</a><a class="pg" href="'+esc(linkTema)+'" target="_blank" rel="noopener">Página do tema</a></div></div>'; }
 function wireResults(){
   document.querySelectorAll('.arg .copy').forEach(b=>b.addEventListener('click',()=>{ const k=b.getAttribute('data-arg'); const txt=k==='pitch'?state.args.pitch:state.args.blocos[+k].t; copyText(txt,b,'Copiado ✓'); }));
   const cs=document.getElementById('copy-summary'); if(cs) cs.addEventListener('click',()=>copyText(buildSummary(),cs,'Resumo copiado ✓'));
