@@ -331,7 +331,7 @@
   </div>
 </div>
 
-<p class="ver-stamp">v2.2.0 · Raio-X + Tema Ideal · Loja de Temas Tray</p>
+<p class="ver-stamp">v2.4.0 · Raio-X + Tema Ideal · Loja de Temas Tray</p>
 <p class="foot">O diagnóstico é montado a partir do que está visível no código público da loja no momento da análise. A recomendação de tema cruza o segmento detectado com as lacunas encontradas; os temas e valores vêm do catálogo da Loja de Temas Tray e podem mudar — confira sempre a página e a demonstração vigentes antes de fechar. Os dados de mercado citados são de referências públicas (Baymard Institute, Opinion Box/Octadesk, ABComm) e servem de apoio ao discurso, não como promessa de resultado.</p>
 
 <script>
@@ -1465,51 +1465,133 @@ async function recomendarTemas(L,onStep){
         .forEach(t=>itens.push({t,cap:{verificado:false,fichaValida:false,count:null,total:null}}));
     }
   }
-  // 3) avalia pela contagem REAL de recursos + ganhos sobre o tema atual
+  // 3) DEDUPLICAÇÃO POR TEMA BASE — remove variantes do mesmo tema (mesmo dev + count + preço similar)
+  // "Pijamaria - Simple" e "Look - Simple" da DevRocket são o mesmo tema base com outra skin.
+  // Critério: mesmo desenvolvedor + mesma contagem de recursos + preço igual (ou diferença < R$ 20)
+  // Quando dois itens são variantes, mantém só o de maior score de aderência ao segmento.
+  function chaveBase(cap,t){
+    const dev=norm(t.dev||cap.dev||'');
+    const cnt=cap.count!=null?cap.count:-1;
+    const preco=Math.round((t.preco||0)/20); // bucket de R$20 para absorver variações mínimas
+    return dev+'|'+cnt+'|'+preco;
+  }
+  const baseMap=new Map();
+  itens.forEach(item=>{
+    const chave=chaveBase(item.cap,item.t);
+    if(!baseMap.has(chave)){
+      baseMap.set(chave,item);
+    } else {
+      // mantém o que tem maior aderência ao segmento (score de tags)
+      const atual=baseMap.get(chave);
+      const scA=scoreTema(atual.t,needs,L), scB=scoreTema(item.t,needs,L);
+      if(scB>scA) baseMap.set(chave,item);
+    }
+  });
+  const itensSemDup=[...baseMap.values()];
+
+  // 4) avalia pela contagem REAL de recursos + ganhos sobre o tema atual
   // cobertas: candidato resolve lacunas de tema real (o atual não cobre na ficha)
-  // ganhosReais: subconjunto de cobertas que a loja ainda não exibe (confirma que a loja vai ganhar algo)
-  const avaliados=itens.map(({t,cap})=>{
+  // ganhosReais: subconjunto de cobertas que a loja ainda não exibe
+  const avaliados=itensSemDup.map(({t,cap})=>{
     const cobertas=gapsReaisTema.filter(g=>capCobre(cap,g));
-    const ganhosReais=cobertas.filter(g=>!currentCobre(g)); // redundante após filtro acima, mas mantém semântica clara
+    const ganhosReais=cobertas.filter(g=>!currentCobre(g));
     const count=(cap.verificado&&cap.count!=null)?cap.count:null;
     const podeComparar=(count!=null&&countAtual!=null);
     const maisRecursos=podeComparar?(count-countAtual):0;
     const ehUpgrade=(podeComparar&&maisRecursos>0)||(ganhosReais.length>0);
-    const naoInferior=podeComparar?(count>=countAtual):true; // sem contagem comparável, não exclui
-    const melhor=podeComparar?ehUpgrade:true;                 // sem comparação, entra por best-effort
+    const naoInferior=podeComparar?(count>=countAtual):true;
+    const melhor=podeComparar?ehUpgrade:true;
     const pre=scoreTema(t,needs,L);
     let sc=(ganhosReais.length*10)+(cobertas.length*3)+(maisRecursos>0?Math.min(maisRecursos,40)*0.4:0)+pre*0.3+(count!=null?2:0);
     return {t,pre,count,total:cap.total,sc,cap,cobertas,ganhosReais,ehUpgrade,melhor,naoInferior,verificado:cap.verificado};
   }).sort((a,b)=>b.sc-a.sc);
-  // 4) seleção: só melhores e nunca inferiores; diversidade de faixa
-  const temUpgradeReal=avaliados.some(r=>r.ehUpgrade);
-  const elegiveis=avaliados.filter(r=>r.naoInferior && r.melhor);
-  const mesmoNivel=avaliados.filter(r=>r.naoInferior && !r.melhor); // >= atual mas sem ganho (troca de visual)
+
+  // 5) VERIFICAÇÃO NA DEMO — acontece ANTES da seleção final.
+  //    Acessa a loja de demonstração de cada avaliado e confirma se os recursos da ficha existem ao vivo.
+  //    O resultado recalibra ganhosReais e ehUpgrade de cada candidato ANTES de escolher os 3.
+  //    Assim um tema cujo ganho principal não existe na demo cai no ranking e pode ser substituído.
+  if(onStep) onStep('Verificando recursos nas lojas de demonstração…');
+  const RECURSOS_DEMO=['busca','filtros','carrinhoLateral','avaliacoes','relacionados','destaques','zoom','freteProduto'];
+  async function verificarDemo(cap){
+    const demoUrl=cap.demo||'';
+    if(!demoUrl||!/commercesuite\.com\.br/i.test(demoUrl)) return {_lida:false};
+    try{
+      const html=await fetchText(demoUrl,14000);
+      const dom=new DOMParser().parseFromString(html,'text/html');
+      const txt=dom.body?dom.body.textContent:'';
+      const FRETE_ALL_RX=/calcul\w*\s*(o\s*)?(frete|prazo)|simul\w*\s*(o\s*)?(frete|prazo)|cep|calcular[-_ ]?frete/i;
+      return {
+        busca:!!dom.querySelector('input[type="search"],input[name="q"],input[name="busca"],input[placeholder*="buscar" i],input[placeholder*="pesquisa" i]'),
+        filtros:!!dom.querySelector('[class*="filtro"]:not(script) input,[class*="filter"]:not(script) input,[data-filter],[class*="smart-filter"],[class*="facet"]')||!!dom.querySelector('select[name*="order"],select[name*="ordenar"]'),
+        carrinhoLateral:!!(()=>{ const el=dom.querySelector('[id*="cart-drawer"],[id*="mini-cart"],[class*="cart-drawer"]:not(script),[class*="mini-cart"]:not(script),[data-cart-drawer]'); return el&&(el.tagName==='ASIDE'||el.tagName==='DIV'||el.tagName==='SECTION'||el.getAttribute('role')==='dialog'||/drawer|sidebar|panel/i.test(el.className||'')); })(),
+        avaliacoes:!!(()=>{ const el=dom.querySelector('[class*="review"],[class*="avalia"],[class*="rating"],[itemprop="ratingValue"]'); return el&&(/trustvox|yourviews|aggregaterating|reviewcount/i.test(html)||!!dom.querySelector('[class*="avalia"]:not(style) [class*="star"],[class*="rating-stars"]')); })(),
+        relacionados:!!(()=>{ const el=dom.querySelector('[class*="relacionados"],[class*="related"],[class*="compre-junto"],[class*="cross-sell"],[class*="upsell"]'); return el&&el.querySelectorAll('a,img').length>0; })(),
+        destaques:!!(()=>{ const el=dom.querySelector('[class*="mais-vendidos"],[class*="best-seller"],[class*="destaques"],[class*="featured"]'); return el&&el.querySelectorAll('a,img').length>1; })(),
+        zoom:!!dom.querySelector('[class*="zoom"],[class*="lightbox"],[data-zoom]')||/zoom|magnif|lightbox/i.test(html),
+        freteProduto:FRETE_ALL_RX.test(txt)||!!dom.querySelector('[class*="frete"],[class*="shipping"],[id*="cep"],[name*="cep"]'),
+        _lida:true
+      };
+    }catch(e){ return {_lida:false}; }
+  }
+  // lê demos de todos os avaliados elegíveis (top 8) em paralelo — não só dos escolhidos
+  const topAvaliados=avaliados.slice(0,8);
+  const demoTopResultados=await Promise.all(topAvaliados.map(r=>verificarDemo(r.cap)));
+  // recalibra cada candidato com os dados da demo
+  topAvaliados.forEach((r,i)=>{
+    const demo=demoTopResultados[i]||{};
+    r._demo=demo;
+    r._demoLida=!!demo._lida;
+    if(!demo._lida) return; // demo inacessível: mantém tudo como estava
+    // ganhos confirmados na demo: só conta se existe na ficha E na demo
+    r.ganhosReaisDemo=r.ganhosReais.filter(g=>demo[g]!==false);
+    // se todos os ganhos reais foram desconfirmados pela demo, deixa de ser upgrade
+    if(r.ganhosReais.length>0 && r.ganhosReaisDemo.length===0 && r.count!=null && countAtual!=null && r.count<=countAtual){
+      r.ehUpgrade=false; r.melhor=false;
+    }
+    // penaliza o score proporcionalmente aos ganhos não confirmados
+    const perdidos=r.ganhosReais.length - r.ganhosReaisDemo.length;
+    if(perdidos>0) r.sc=Math.max(0, r.sc - perdidos*12);
+  });
+  // re-ordena após recalibração
+  topAvaliados.sort((a,b)=>b.sc-a.sc);
+
+  // 6) seleção final: só melhores e nunca inferiores; diversidade de faixa
+  const temUpgradeReal=topAvaliados.some(r=>r.ehUpgrade);
+  const elegiveis=topAvaliados.filter(r=>r.naoInferior && r.melhor);
+  const mesmoNivel=topAvaliados.filter(r=>r.naoInferior && !r.melhor);
   const escolhidos=[]; const faixas=new Set();
   const tenta=(lista)=>{ for(const r of lista){ if(escolhidos.length>=3) break; if(escolhidos.includes(r)) continue; const fx=faixaTema(r.t.preco);
       if(escolhidos.length<2 || !faixas.has(fx) || escolhidos.length===2){ escolhidos.push(r); faixas.add(fx); } } };
   tenta(elegiveis);
-  const semUpgrade = (countAtual!=null) && !temUpgradeReal; // só afirma "sem upgrade" quando dá pra comparar
-  if(escolhidos.length<3 && !temUpgradeReal) tenta(mesmoNivel); // completa com mesmo nível só quando não há upgrade real (nunca inferior)
+  const semUpgrade = (countAtual!=null) && !temUpgradeReal;
+  if(escolhidos.length<3 && !temUpgradeReal) tenta(mesmoNivel);
+
   const totalGaps=Math.max(1,gapsReaisTema.length);
   const out=escolhidos.slice(0,3).map((r,i)=>{
     const tema=r.t;
+    const demo=r._demo||{};
+    const demoLida=!!r._demoLida;
+    const confirmaRecurso=(k)=> r.cap[k] && (!demoLida || demo[k]!==false);
+    const naoConfirmadoDemo=demoLida ? RECURSOS_DEMO.filter(k=>r.cap[k]&&demo[k]===false) : [];
     let base;
-    if(r.verificado){ base = 62 + Math.round((r.cobertas.length/totalGaps)*24) + Math.min(12, r.ganhosReais.length*5) + (r.count!=null&&countAtual!=null?Math.min(6,Math.max(-4,(r.count-countAtual)*0.3)):0); }
-    else { base = 60 + Math.round((r.pre/(avaliados[0].pre||1))*16); }
-    const match=pct(Math.max(60, Math.min(97, Math.round(base) - i)));
-    const confirmados=r.cobertas.map(g=>CAP_ROTULO[g]).filter(Boolean);
-    const ganhos=r.ganhosReais.map(g=>CAP_ROTULO[g]).filter(Boolean);
-    const extras=['freteProduto','filtros','busca','avaliacoes','relacionados','tabelaMedidas','carrinhoLateral','quickview'].filter(k=>r.cap[k]&&!r.cobertas.includes(k)).map(k=>CAP_ROTULO[k]).filter(Boolean);
+    if(r.verificado){ base = 62 + Math.round(((r.ganhosReaisDemo||r.ganhosReais).length/totalGaps)*24) + Math.min(12, (r.ganhosReaisDemo||r.ganhosReais).length*5) + (r.count!=null&&countAtual!=null?Math.min(6,Math.max(-4,(r.count-countAtual)*0.3)):0); }
+    else { base = 60 + Math.round((r.pre/(topAvaliados[0].pre||1))*16); }
+    if(demoLida&&naoConfirmadoDemo.length) base-=naoConfirmadoDemo.length*3;
+    const match=pct(Math.max(55, Math.min(97, Math.round(base) - i)));
+    const confirmados=r.cobertas.filter(g=>confirmaRecurso(g)).map(g=>CAP_ROTULO[g]).filter(Boolean);
+    const ganhos=(r.ganhosReaisDemo||r.ganhosReais).filter(g=>confirmaRecurso(g)).map(g=>CAP_ROTULO[g]).filter(Boolean);
+    const extras=RECURSOS_DEMO.filter(k=>r.cap[k]&&!r.cobertas.includes(k)&&confirmaRecurso(k)).map(k=>CAP_ROTULO[k]).filter(Boolean);
     return {tema, match, faixa:faixaTema(tema.preco), verificado:r.verificado, cap:r.cap, count:r.count, total:r.total, ehUpgrade:r.ehUpgrade,
       confirmados, ganhos, extrasDemo:extras.slice(0,3),
+      demoLida, naoConfirmadoDemo:naoConfirmadoDemo.map(k=>CAP_ROTULO[k]).filter(Boolean),
       linkTema:r.cap.url||tema.url,
-      motivo:justificarTema(L,tema,needs,r,countAtual), tagsRotulo:(tema.tags||[]).map(tg=>TAG_LIVE_ROTULO[tg]||TAG_ROTULO[tg]).filter(Boolean).slice(0,4), top:i===0};
+      motivo:justificarTema(L,tema,needs,r,countAtual,demoLida,naoConfirmadoDemo),
+      tagsRotulo:(tema.tags||[]).map(tg=>TAG_LIVE_ROTULO[tg]||TAG_ROTULO[tg]).filter(Boolean).slice(0,4), top:i===0};
   });
   out.meta={semUpgrade, countAtual, totalAtual, fonte, temaAtual:L.temaAtual||null, atualPag:atualPag||null, gapsConfigAtual};
   return out;
 }
-function justificarTema(L,tema,needs,r,countAtual){
+function justificarTema(L,tema,needs,r,countAtual,demoLida,naoConfirmadoDemo){
   const loja=L.nomeLoja||'a loja', seg=L.perfil.segmento.nome.toLowerCase();
   const parts=[]; const fx=faixaTema(tema.preco); const ta=L.temaAtual;
   parts.push('Feito para '+seg+', o mesmo ramo da '+loja+'.');
@@ -1538,6 +1620,11 @@ function justificarTema(L,tema,needs,r,countAtual){
     else { parts.push('Não supera o tema atual ('+ta.nome+') em recursos; considere-o apenas para renovar o visual, não para ganhar funcionalidades.'); }
   }
   parts.push(enc+' — compra única, sem mensalidade sobre o tema'+(tema.dia?', e é de um parceiro Diamante da Tray':'')+'.');
+  if(demoLida&&naoConfirmadoDemo&&naoConfirmadoDemo.length){
+    parts.push('Atenção: a demo foi verificada ao vivo e '+listPt(naoConfirmadoDemo.map(lower1))+' não '+(naoConfirmadoDemo.length===1?'foi encontrado':'foram encontrados')+' ativos — confirme na demonstração antes de apresentar ao lojista.');
+  } else if(demoLida){
+    parts.push('Recursos confirmados tanto na ficha oficial quanto na demonstração ao vivo.');
+  }
   return parts.join(' ');
 }
 /* ---------- 7. argumentos e guia (para o atendimento) ---------- */
@@ -1779,11 +1866,16 @@ function temaCardHtml(r){ const t=r.tema; const gratis=!t.preco||t.preco<=0; con
     : '<div class="p">'+brl(t.preco)+'<small>ou 12x de '+brl(parcela)+'</small></div>';
   /* 3 estados: ficha lida com count | ficha lida sem count (recursos detectados) | não lida */
   const fichaValida=r.cap&&r.cap.fichaValida;
+  const demoOk=r.demoLida&&(!r.naoConfirmadoDemo||r.naoConfirmadoDemo.length===0);
+  const demoAviso=r.demoLida&&r.naoConfirmadoDemo&&r.naoConfirmadoDemo.length>0;
   const selo = (r.verificado && r.count!=null)
-    ? '<div class="ver ok"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6L9 17l-5-5"/></svg>Ficha oficial conferida · '+r.count+(r.total?'/'+r.total:'')+' recursos Tray</div>'
+    ? '<div class="ver ok"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6L9 17l-5-5"/></svg>Ficha oficial conferida · '+r.count+(r.total?'/'+r.total:'')+' recursos Tray'+(demoOk?' · demo verificada ✓':'')+'</div>'
     : (fichaValida
-      ? '<div class="ver ok"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6L9 17l-5-5"/></svg>Ficha oficial conferida · recursos detectados na página</div>'
+      ? '<div class="ver ok"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6L9 17l-5-5"/></svg>Ficha oficial conferida · recursos detectados'+(demoOk?' · demo verificada ✓':'')+'</div>'
       : '<div class="ver no"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9"/><path d="M12 8v4M12 16h.01"/></svg>Ficha não acessível agora — confirme na página do tema</div>');
+  const selloDemo = demoAviso
+    ? '<div class="ver no" style="margin-top:4px"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"/><path d="M12 9v4M12 17h.01"/></svg>Demo verificada — '+(r.naoConfirmadoDemo||[]).join(', ')+' não encontrado(s) ativos</div>'
+    : (!r.demoLida ? '<div class="ver no" style="margin-top:4px;color:#8A6A1E;background:#FDF3DC;border-color:#F0D89A"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="#C08010" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9"/><path d="M12 8v4M12 16h.01"/></svg>Demo não acessível agora — verifique ao vivo antes de apresentar</div>' : '');
   let conf='';
   if(r.verificado && r.ganhos && r.ganhos.length){ conf='<div class="conf up"><span class="cl">Ganhos sobre o tema atual (resolve lacunas da loja):</span><div class="ctags">'+r.ganhos.slice(0,4).map(c=>'<span class="ct up">▲ '+esc(cap(c))+'</span>').join('')+'</div></div>'; }
   else if(r.verificado && r.confirmados && r.confirmados.length){ conf='<div class="conf"><span class="cl">Confirmado na ficha, cobre lacuna da loja:</span><div class="ctags">'+r.confirmados.slice(0,4).map(c=>'<span class="ct yes">✓ '+esc(cap(c))+'</span>').join('')+'</div></div>'; }
@@ -1792,7 +1884,7 @@ function temaCardHtml(r){ const t=r.tema; const gratis=!t.preco||t.preco<=0; con
     (r.ehUpgrade?'<span class="flag up"><svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><path d="M12 19V5M5 12l7-7 7 7"/></svg>Upgrade</span>':'')+
     '<div class="thead"><div class="cat">'+esc(cap(t.seg==='geral'?'Versátil':(SEGMENTOS.find(s=>s.id===t.seg)||{}).nome||t.seg))+'</div><h3>'+esc(t.n)+'</h3><div class="dev">por '+esc(t.dev)+(t.dia?'<span class="pill">Diamante</span>':'')+'</div></div>'+
     '<div class="match">'+ringMatch(r.match)+'<div class="ml"><b>'+r.match+'% de aderência</b><span>ao caso desta loja</span></div></div>'+
-    selo+
+    selo+selloDemo+
     '<div class="body"><div class="why">'+esc(r.motivo)+'</div>'+conf+'<div class="tags">'+r.tagsRotulo.map(tg=>'<span class="tg">'+esc(tg)+'</span>').join('')+'</div>'+
     '<div class="price">'+precoHtml+'<div class="once">compra única<br/>sem mensalidade</div></div></div>'+
     '<div class="links"><a class="demo" href="'+esc(t.demo)+'" target="_blank" rel="noopener">Ver demonstração</a><a class="pg" href="'+esc(linkTema)+'" target="_blank" rel="noopener">Página do tema</a></div></div>'; }
