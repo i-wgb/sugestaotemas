@@ -363,7 +363,7 @@
   </div>
 </div>
 
-<p class="ver-stamp">v2.5.0 · Raio-X + Tema Ideal · Loja de Temas Tray</p>
+<p class="ver-stamp">v2.5.4 · Raio-X + Tema Ideal · Loja de Temas Tray</p>
 <p class="foot">O diagnóstico é montado a partir do que está visível no código público da loja no momento da análise. A recomendação de tema cruza o segmento detectado com as lacunas encontradas; os temas e valores vêm do catálogo da Loja de Temas Tray e podem mudar — confira sempre a página e a demonstração vigentes antes de fechar. Os dados de mercado citados são de referências públicas (Baymard Institute, Opinion Box/Octadesk, ABComm) e servem de apoio ao discurso, não como promessa de resultado.</p>
 
 <script>
@@ -901,17 +901,59 @@ function analisarLoja(html,url,extras){
   const _ordEl=dom.querySelector('select[name*="order"],select[name*="ordenar"],select[id*="ordenar"],select[id*="order"],[class*="ordenar"] select,[class*="order-by"] select');
   const _filtros=!!(_filtroEl||_ordEl);
 
-  /* CARRINHO LATERAL — verifica presença de elemento aside/div com atributos específicos
-     de mini-cart, descartando menus e drawers que não são carrinho.
-     Não basta a classe existir no CSS — o elemento precisa estar no DOM. */
-  const _cartEl=dom.querySelector(
-    '[id*="cart-drawer"],[id*="cartDrawer"],[id*="mini-cart"],[id*="minicart"],'+
-    '[class*="cart-drawer"]:not(script),[class*="cart-sidebar"]:not(script),'+
-    '[class*="mini-cart"]:not(script),[class*="minicart"]:not(script),'+
-    '[data-cart-drawer],[data-minicart],[class*="carrinho-lateral"]'
-  );
-  /* confirmação extra: o elemento não pode ser apenas o botão — precisa ser o painel */
-  const _carrinhoLateral=!!(_cartEl&&(_cartEl.tagName==='ASIDE'||_cartEl.tagName==='DIV'||_cartEl.tagName==='SECTION'||_cartEl.getAttribute('role')==='dialog'||(_cartEl.className||'').match(/drawer|sidebar|panel/i)));
+  /* CARRINHO LATERAL — detecta o PAINEL do mini-cart, não apenas o link/ícone do carrinho.
+     Toda loja Tray tem um link para /carrinho no header — isso NÃO é carrinho lateral.
+     Carrinho lateral = painel/drawer que abre sem sair da página ao clicar em "Comprar".
+     
+     Critério obrigatório: deve existir um elemento de PAINEL real no DOM:
+     - Elemento aside, div ou section com id/class específico de drawer/mini-cart
+     - data-app="cart" (padrão nativo da Tray para mini-cart)
+     - role="dialog" num elemento de carrinho
+     - Elemento hidden/inactive no DOM esperando ser aberto via JS (padrão dos temas)
+     
+     NÃO conta: simples <a href="/carrinho">, ícone do carrinho no header, contador de itens. */
+  
+  /* Camada 1: data-app="cart" ou "cart.fly" — padrão nativo Tray de mini-cart */
+  const _cartDataApp=dom.querySelector('[data-app="cart"],[data-app*="cart.fly"],[data-app*="cart.side"],[data-app*="cart.drawer"]');
+  
+  /* Camada 2: elementos de painel/drawer explícitos — classes e ids que designam o PAINEL,
+     não o botão. Excluímos <a> e <button> pois são apenas acionadores, não o painel. */
+  const _cartDrawer=(()=>{
+    const sels=[
+      '[id*="cart-drawer"]','[id*="cartDrawer"]','[id*="mini-cart"]','[id*="minicart"]',
+      '[id*="cart-slide"]','[id*="cartSlide"]','[id*="cart-side"]','[id*="cart-panel"]',
+      '[id*="cart-flyout"]','[id*="cartFlyout"]','[id*="shopping-cart-drawer"]',
+      '[class*="cart-drawer"]:not(a):not(button):not(script)',
+      '[class*="mini-cart"]:not(a):not(button):not(script)',
+      '[class*="cart-slide"]:not(a):not(button):not(script)',
+      '[class*="cart-side"]:not(a):not(button):not(script)',
+      '[class*="cart-panel"]:not(a):not(button):not(script)',
+      '[class*="cart-flyout"]:not(a):not(button):not(script)',
+      '[class*="carrinho-lateral"]:not(a):not(button):not(script)',
+      '[class*="cart-overlay"]:not(a):not(button):not(script)',
+      '[data-cart-drawer]','[data-minicart]','[data-cart-side]','[data-cart-panel]'
+    ];
+    for(const s of sels){ const el=dom.querySelector(s); if(el&&el.tagName!=='A'&&el.tagName!=='BUTTON') return el; }
+    return null;
+  })();
+  
+  /* Camada 3: aside ou section COM "cart"/"carrinho" no id/class E que tenha conteúdo
+     (filhos suficientes para ser um painel, não só um wrapper vazio) */
+  const _cartAside=(()=>{
+    const candidates=[...dom.querySelectorAll('aside,section,[role="dialog"],[role="complementary"]')];
+    return candidates.find(el=>{
+      const attrs=(el.id||'')+' '+(el.className||'');
+      if(!/cart|carrinho|sacola/i.test(attrs)) return false;
+      // precisa ter conteúdo — pelo menos 2 filhos diretos (é um painel real, não wrapper)
+      if(el.children.length<2) return false;
+      // NÃO pode ser o elemento de nav/menu (descarta falsos positivos de menu mobile)
+      if(/nav|menu|header/i.test(el.tagName+' '+attrs)) return false;
+      return true;
+    });
+  })();
+  
+  /* Resultado: só afirma carrinho lateral quando tem painel real no DOM */
+  const _carrinhoLateral=!!(_cartDataApp||_cartDrawer||_cartAside);
 
   /* MENU MOBILE — elemento real de toggle, não só a classe no CSS */
   const _menuMobile=!!dom.querySelector(
@@ -939,7 +981,19 @@ function analisarLoja(html,url,extras){
   const imgs=(html.match(/<img\b/gi)||[]).length;
   const pesoKb=Math.round(html.length/1024);
   const dominios=new Set((html.match(/https?:\/\/([a-z0-9.-]+)/gi)||[]).map(u=>u.replace(/^https?:\/\//i,'').split('/')[0].toLowerCase()));
-  L.tec={ https:/^https:/i.test(url)||/^https:/i.test(L.origin), viewport:/name=["']viewport["']/i.test(html), lazy:/loading=["']lazy["']|lazyload/i.test(html), webp:/\.webp/i.test(html), pwa:/rel=["']manifest["']|serviceworker|service-worker/i.test(html), appLoja:/apps\.apple\.com|play\.google\.com\/store/i.test(html), scripts,imagens:imgs,pesoKb,dominios:dominios.size, velocidade: pesoKb<350&&scripts<25?'rápida': pesoKb>1200||scripts>45?'lenta':'mediana' };
+  /* CTAs — botões de ação primários na loja (comprar, adicionar, whatsapp) */
+  const _ctaComprar=!!dom.querySelector(
+    'button[class*="comprar"],button[class*="buy"],button[class*="add-to-cart"],'+
+    'button[class*="adicionar"],a[class*="btn-comprar"],a[class*="btn-buy"],'+
+    '[class*="product-btn"],[class*="btn-produto"],[data-action*="buy"],[data-action*="cart"]'
+  );
+  const _ctaWhatsapp=!!dom.querySelector('a[href*="wa.me"],a[href*="api.whatsapp"],[class*="btn-whatsapp"],[class*="whatsapp-btn"]');
+  const _ctaVisivel=_ctaComprar||!!dom.querySelector('button[type="submit"],[class*="btn-primary"],[class*="cta-"]');
+  /* tamanho mínimo dos botões — verifica se há style inline com height/padding razoável ou classe de tamanho */
+  const _ctaTamanho=!!dom.querySelector('[class*="btn-lg"],[class*="btn-block"],[class*="btn-full"],[class*="w-full"],[class*="btn-large"]')||
+    (html.match(/padding[^;]{0,40}(1[2-9]|[2-9]\d)px/)||[]).length>0;
+  L.tec={ https:/^https:/i.test(url)||/^https:/i.test(L.origin), viewport:/name=["']viewport["']/i.test(html), lazy:/loading=["']lazy["']|lazyload/i.test(html), webp:/\.webp/i.test(html), pwa:/rel=["']manifest["']|serviceworker|service-worker/i.test(html), appLoja:/apps\.apple\.com|play\.google\.com\/store/i.test(html), scripts,imagens:imgs,pesoKb,dominios:dominios.size, velocidade: pesoKb<350&&scripts<25?'rápida': pesoKb>1200||scripts>45?'lenta':'mediana',
+    ctaComprar:_ctaComprar, ctaWhatsapp:_ctaWhatsapp, ctaVisivel:_ctaVisivel, ctaTamanho:_ctaTamanho };
   /* SEO e conteúdo */
   const h1=[...dom.querySelectorAll('h1')].length;
   const jsonld=[...html.matchAll(/"@type"\s*:\s*"([A-Za-z]+)"/g)].map(m=>m[1]);
@@ -1087,7 +1141,8 @@ function montarScore(L){
   eixos.push({nome:'Navegação e descoberta',valor:pct(100*(b(e.busca)+b(e.filtros)+b(e.submenu)+b(c.destaques)+b(c.relacionados)+b(e.itensMenu.length>=4))/6)});
   eixos.push({nome:'Conversão e checkout',valor:pct(100*(b(c.pix)+b(c.parcel)+b(c.freteCalc)+b(c.freteGratis)+b(c.cupom)+b(c.checkoutInterno))/6)});
   eixos.push({nome:'Confiança e prova social',valor:pct(100*(b(t.avaliacoes)+b(t.selo)+b(t.politicaTroca)+b(t.reclameAqui)+b(t.cnpj)+b(t.atendimento))/6)});
-  eixos.push({nome:'Performance e mobile',valor:pct(100*(b(tec.viewport)+b(tec.velocidade==='rápida')*1.5+b(tec.velocidade!=='lenta')*0.5+b(tec.lazy)+b(tec.webp)+b(tec.pesoKb<800))/6)});
+  eixos.push({nome:'Performance',valor:pct(100*(b(tec.velocidade==='rápida')*1.5+b(tec.velocidade!=='lenta')*0.5+b(tec.lazy)+b(tec.webp)+b(tec.pesoKb<800)+b(tec.scripts<30))/6)});
+  eixos.push({nome:'Mobile e CTAs',valor:pct(100*(b(tec.viewport)+b(e.menuMobile)+b(tec.ctaVisivel)+b(tec.ctaTamanho)+b(c.pix)+b(e.carrinhoLateral))/6)});
   eixos.push({nome:'Conteúdo e SEO',valor:pct(100*(b(s.tituloOk)+b(s.descricaoOk)+b(s.og)+b(s.h1Ok)+b(s.urlsAmigaveis)+b(s.blog))/6)});
   const total=pct(eixos.reduce((a,x)=>a+x.valor,0)/eixos.length);
   return {eixos,total,rotulo: total>=75?'madura':total>=55?'em evolução':total>=35?'com lacunas':'no básico'};
@@ -1544,23 +1599,185 @@ async function recomendarTemas(L,onStep){
   //    Assim um tema cujo ganho principal não existe na demo cai no ranking e pode ser substituído.
   if(onStep) onStep('Verificando recursos nas lojas de demonstração…');
   const RECURSOS_DEMO=['busca','filtros','carrinhoLateral','avaliacoes','relacionados','destaques','zoom','freteProduto'];
+
+  /* verificarDemo — lê home + produto + categoria/busca da demo.
+     Cada recurso é verificado na página onde naturalmente aparece:
+     - home: destaques, carrinho lateral, busca, frete grátis
+     - produto: avaliações, compre junto/relacionados, zoom, frete por CEP, busca
+     - categoria/busca: filtros inteligentes, ordenação, busca
+     Combina as três leituras antes de decidir se o recurso existe. */
   async function verificarDemo(cap){
-    const demoUrl=cap.demo||'';
+    const demoUrl=(cap.demo||'').replace(/\/$/,'');
     if(!demoUrl||!/commercesuite\.com\.br/i.test(demoUrl)) return {_lida:false};
+
+    // helper: detecta carrinho lateral — painel real, não link/ícone do header
+    function temCartLateral(d,h){
+      // data-app="cart" — padrão nativo Tray de mini-cart
+      if(d.querySelector('[data-app="cart"],[data-app*="cart.fly"],[data-app*="cart.side"],[data-app*="cart.drawer"]')) return true;
+      // painel/drawer explícito (exclui <a> e <button> que são só acionadores)
+      const sels=[
+        '[id*="cart-drawer"]','[id*="cartDrawer"]','[id*="mini-cart"]','[id*="minicart"]',
+        '[id*="cart-slide"]','[id*="cart-side"]','[id*="cart-panel"]','[id*="cart-flyout"]',
+        '[class*="cart-drawer"]:not(a):not(button):not(script)',
+        '[class*="mini-cart"]:not(a):not(button):not(script)',
+        '[class*="cart-slide"]:not(a):not(button):not(script)',
+        '[class*="cart-side"]:not(a):not(button):not(script)',
+        '[class*="cart-panel"]:not(a):not(button):not(script)',
+        '[class*="cart-flyout"]:not(a):not(button):not(script)',
+        '[class*="carrinho-lateral"]:not(a):not(button):not(script)',
+        '[data-cart-drawer]','[data-minicart]','[data-cart-side]','[data-cart-panel]'
+      ];
+      for(const s of sels){ const el=d.querySelector(s); if(el&&el.tagName!=='A'&&el.tagName!=='BUTTON') return true; }
+      // aside/section com "cart" no id/class E com conteúdo real (não só wrapper)
+      const aside=[...d.querySelectorAll('aside,section,[role="dialog"]')].find(el=>{
+        const attrs=(el.id||'')+' '+(el.className||'');
+        return /cart|carrinho|sacola/i.test(attrs)&&el.children.length>=2&&!/nav|menu/i.test(attrs);
+      });
+      return !!aside;
+    }
+    // helper: detecta busca em qualquer DOM
+    function temBusca(d){
+      return !!d.querySelector(
+        'input[type="search"],input[name="q"],input[name="busca"],input[name="search"],'+
+        'input[name="palavra"],input[name="palavra_busca"],input[name="termo"],'+
+        '[role="search"] input,[class*="search-input"],[class*="busca-input"],'+
+        '[class*="search-bar"],[class*="barra-busca"],[class*="header-search"],'+
+        'input[placeholder*="buscar" i],input[placeholder*="pesquisa" i],'+
+        'input[placeholder*="procurar" i],input[placeholder*="o que" i],'+
+        'form[action*="busca"] input,form[action*="search"] input,'+
+        '[data-search],[data-js-search],[class*="js-search"],[id*="busca"],[id*="search-input"]'
+      );
+    }
+    // helper: detecta avaliações em produto — provedor externo, schema.org ou elementos visuais
+    function temAvaliacoes(d,h){
+      // 1) provedores conhecidos no HTML (mais confiável)
+      if(/trustvox|yourviews|opinionbox|konfio|ratingwidget/i.test(h)) return true;
+      // 2) schema.org no JSON-LD
+      if(/aggregaterating|reviewcount|ratingvalue/i.test(h)) return true;
+      // 3) elementos DOM de estrelas/avaliação com conteúdo real
+      const el=d.querySelector(
+        '[class*="review"],[class*="avalia"],[class*="rating"],[itemprop="ratingValue"],'+
+        '[class*="stars"],[class*="estrelas"],[class*="nota-media"],[class*="score"],'+
+        '[data-rating],[data-review-count],[class*="product-review"]'
+      );
+      if(el&&d.querySelector('[itemprop="ratingValue"],[itemprop="reviewCount"]')) return true;
+      if(el&&d.querySelector('[class*="star"],[class*="estrela"]')) return true;
+      // 4) texto "seja o primeiro a opinar" ou "avalie este produto" indica que o sistema existe
+      const txt=d.body?d.body.textContent:'';
+      if(/seja o primeiro a opinar|avalie este produto|escrever avalia|deixe sua avalia/i.test(txt)) return true;
+      return false;
+    }
+    // helper: detecta filtros em categoria/busca
+    function temFiltros(d){
+      // 1) seletores diretos de filtro
+      if(d.querySelector(
+        '[class*="filtro"]:not(script) input,[class*="filter"]:not(script) input,'+
+        '[data-filter],[data-facet],[class*="facet"],[class*="smart-filter"],'+
+        '[class*="filtro-inteligente"],[class*="sf-filter"],[class*="sidebar-filter"],'+
+        '[id*="filtro"],[id*="filter"],[class*="refinement"],[class*="refine"]'
+      )) return true;
+      // 2) select de ordenação — indica página de listagem com controles
+      if(d.querySelector('select[name*="order"],select[name*="ordenar"],select[id*="ordenar"],select[id*="order"],select[id*="sort"],select[name*="sort"]')) return true;
+      // 3) checkboxes dentro de seção lateral (padrão de filtro lateral)
+      const sidebar=d.querySelector('aside,[class*="sidebar"],[class*="lateral"]');
+      if(sidebar&&sidebar.querySelectorAll('input[type="checkbox"],input[type="radio"]').length>2) return true;
+      return false;
+    }
+    // helper: detecta frete/CEP em produto — cobre texto visível, estrutura e widgets Tray
+    const FRETE_RX=/(calcul|informe|digite|preencha|seu|calcule|qual\s*seu).{0,20}cep|frete\s*e\s*prazo|prazo\s*de\s*entrega|simul.{0,10}frete|calcular\s*frete|cep\s*para\s*calcul|entrega\s*e\s*prazo/i;
+    const FRETE_STRUCT=/name=["'](cep|zipcode|zip|postal_?code|cep_?entrega|Cep)["']|id=["'][^"']*(cep|frete|shipping|calcular)["']|placeholder=["'][^"']*cep|data-cep|data-shipping|data-app=["']product\.zip|product-shipping|produto-calcular-frete|shipping-form|zip-?box|calcularFrete|calcular_frete|simulaFrete/i;
+    function temFreteProd(d,h,t){
+      // 1) texto visível na página — mais confiável
+      if(FRETE_RX.test(t)) return true;
+      // 2) estrutura HTML — atributos de input/widget de frete
+      if(FRETE_STRUCT.test(h)) return true;
+      // 3) seletores DOM — elementos reais de frete/CEP
+      if(d.querySelector('[class*="frete"],[class*="shipping"],[id*="cep"],[name*="cep"],[class*="zip"],[data-app*="zip"],[class*="calcular-frete"],[class*="shipping-calc"],[class*="frete-prazo"],[id*="shipping"],[class*="zipcode"],[id*="zipcode"]')) return true;
+      return false;
+    }
+    // helper: detecta relacionados/compre junto
+    function temRelacionados(d){
+      const el=d.querySelector(
+        '[class*="relacionados"],[class*="related"],[class*="compre-junto"],[class*="cross-sell"],'+
+        '[class*="upsell"],[class*="leve-junto"],[class*="complete-look"],[class*="tambem-gosta"],'+
+        '[class*="quem-viu"],[class*="veja-tambem"],[class*="produtos-relacionados"],'+
+        '[id*="relacionados"],[id*="related"],[id*="compre-junto"]'
+      );
+      if(el&&el.querySelectorAll('a,img').length>0) return true;
+      // texto indica seção mesmo que classe seja genérica
+      const txt=d.body?d.body.textContent:'';
+      return /compre junto|produtos relacionados|quem viu tamb[eé]m|complete o look|leve tamb[eé]m/i.test(txt);
+    }
+    // helper: detecta zoom/quickview
+    function temZoom(d,h){
+      if(d.querySelector(
+        '[class*="zoom"],[class*="lightbox"],[data-zoom],[class*="quickview"],[class*="quick-view"],'+
+        '[class*="image-zoom"],[class*="foto-zoom"],[class*="product-zoom"],[class*="img-zoom"],'+
+        '[data-lightbox],[data-fancybox],[class*="fancybox"],[class*="magnifier"],[class*="lupa"]'
+      )) return true;
+      return /zoom|magnif|lightbox|quickview|fancybox|lupa/i.test(h);
+    }
+    // helper: detecta destaques/mais vendidos na home
+    function temDestaques(d){
+      const el=d.querySelector(
+        '[class*="mais-vendidos"],[class*="best-seller"],[class*="destaques"],[class*="em-alta"],'+
+        '[class*="featured"],[class*="hot-products"],[class*="queridinhos"],[class*="vitrine"],'+
+        '[class*="showcase"],[class*="destaque"],[id*="destaques"],[id*="mais-vendidos"],'+
+        '[class*="top-produtos"],[class*="produtos-destaque"],[class*="lancamentos"]'
+      );
+      if(el&&el.querySelectorAll('a,img').length>1) return true;
+      // seções com título de destaque seguidas de produtos
+      const txt=d.body?d.body.textContent:'';
+      const temTitulo=/mais vendidos|destaques|em alta|novidades|lançamentos|best sellers|produtos em destaque/i.test(txt);
+      if(temTitulo&&d.querySelectorAll('a[href*="/produto"],a[href*="/product"]').length>3) return true;
+      return false;
+    }
+
     try{
-      const html=await fetchText(demoUrl,14000);
-      const dom=new DOMParser().parseFromString(html,'text/html');
-      const txt=dom.body?dom.body.textContent:'';
-      const FRETE_ALL_RX=/calcul\w*\s*(o\s*)?(frete|prazo)|simul\w*\s*(o\s*)?(frete|prazo)|cep|calcular[-_ ]?frete/i;
+      // 1) HOME
+      const htmlHome=await fetchText(demoUrl,14000);
+      const domHome=new DOMParser().parseFromString(htmlHome,'text/html');
+      const txtHome=domHome.body?domHome.body.textContent:'';
+
+      // 2) PRODUTO — acha link real de produto na home e lê a página
+      let htmlProd='', domProd=null, txtProd='';
+      const urlsProd=acharLinksProduto(htmlHome,demoUrl,2);
+      if(urlsProd.length){
+        const hp=await Promise.all(urlsProd.map(u=>fetchText(u,12000).catch(()=>'')));
+        const valido=hp.find(h=>h&&h.length>500)||'';
+        if(valido){ htmlProd=valido; domProd=new DOMParser().parseFromString(valido,'text/html'); txtProd=domProd.body?domProd.body.textContent:''; }
+      }
+
+      // 3) CATEGORIA/BUSCA — acha link de categoria na home e lê
+      let htmlCat='', domCat=null;
+      try{
+        const hrefsCat=[...domHome.querySelectorAll('nav a[href],header a[href],[class*="menu"] a[href]')]
+          .map(a=>a.getAttribute('href')||'')
+          .filter(h=>h&&!/^(#|javascript|mailto|tel)/i.test(h)&&!/\/(produto|product)\//i.test(h));
+        // tenta primeiro link de categoria real, fallback para busca
+        let catUrl='';
+        for(const h of hrefsCat){
+          const u=resolveUrl(h,demoUrl);
+          if(u&&u!==demoUrl&&/\/(categoria|categorias|category|colec|departamento|busca|search)/i.test(u)){ catUrl=u; break; }
+        }
+        if(!catUrl&&hrefsCat.length) catUrl=resolveUrl(hrefsCat[0],demoUrl);
+        if(catUrl&&catUrl!==demoUrl){
+          const hc=await fetchText(catUrl,12000).catch(()=>'');
+          if(hc&&hc.length>300){ htmlCat=hc; domCat=new DOMParser().parseFromString(hc,'text/html'); }
+        }
+      }catch(e){}
+
+      // Combina resultados das 3 páginas
+      const htmlAll3=htmlHome+(htmlProd?' '+htmlProd:'')+(htmlCat?' '+htmlCat:'');
       return {
-        busca:!!dom.querySelector('input[type="search"],input[name="q"],input[name="busca"],input[placeholder*="buscar" i],input[placeholder*="pesquisa" i]'),
-        filtros:!!dom.querySelector('[class*="filtro"]:not(script) input,[class*="filter"]:not(script) input,[data-filter],[class*="smart-filter"],[class*="facet"]')||!!dom.querySelector('select[name*="order"],select[name*="ordenar"]'),
-        carrinhoLateral:!!(()=>{ const el=dom.querySelector('[id*="cart-drawer"],[id*="mini-cart"],[class*="cart-drawer"]:not(script),[class*="mini-cart"]:not(script),[data-cart-drawer]'); return el&&(el.tagName==='ASIDE'||el.tagName==='DIV'||el.tagName==='SECTION'||el.getAttribute('role')==='dialog'||/drawer|sidebar|panel/i.test(el.className||'')); })(),
-        avaliacoes:!!(()=>{ const el=dom.querySelector('[class*="review"],[class*="avalia"],[class*="rating"],[itemprop="ratingValue"]'); return el&&(/trustvox|yourviews|aggregaterating|reviewcount/i.test(html)||!!dom.querySelector('[class*="avalia"]:not(style) [class*="star"],[class*="rating-stars"]')); })(),
-        relacionados:!!(()=>{ const el=dom.querySelector('[class*="relacionados"],[class*="related"],[class*="compre-junto"],[class*="cross-sell"],[class*="upsell"]'); return el&&el.querySelectorAll('a,img').length>0; })(),
-        destaques:!!(()=>{ const el=dom.querySelector('[class*="mais-vendidos"],[class*="best-seller"],[class*="destaques"],[class*="featured"]'); return el&&el.querySelectorAll('a,img').length>1; })(),
-        zoom:!!dom.querySelector('[class*="zoom"],[class*="lightbox"],[data-zoom]')||/zoom|magnif|lightbox/i.test(html),
-        freteProduto:FRETE_ALL_RX.test(txt)||!!dom.querySelector('[class*="frete"],[class*="shipping"],[id*="cep"],[name*="cep"]'),
+        busca: temBusca(domHome)||(domProd&&temBusca(domProd))||(domCat&&temBusca(domCat))||false,
+        filtros: temFiltros(domHome)||(domCat&&temFiltros(domCat))||(domProd&&temFiltros(domProd))||false,
+        carrinhoLateral: temCartLateral(domHome,htmlHome)||(domProd&&temCartLateral(domProd,htmlProd))||false,
+        avaliacoes: (domProd&&temAvaliacoes(domProd,htmlProd))||temAvaliacoes(domHome,htmlHome)||false,
+        relacionados: (domProd&&temRelacionados(domProd))||temRelacionados(domHome)||false,
+        destaques: temDestaques(domHome)||(domProd&&temDestaques(domProd))||false,
+        zoom: (domProd&&temZoom(domProd,htmlProd))||temZoom(domHome,htmlHome)||false,
+        freteProduto: (domProd&&temFreteProd(domProd,htmlProd,txtProd))||temFreteProd(domHome,htmlHome,txtHome)||false,
         _lida:true
       };
     }catch(e){ return {_lida:false}; }
@@ -1814,9 +2031,18 @@ function montarUXDiag(L){
   // Pix (relevante no mobile — preferido)
   if(c.pix) mob.pontos.push('Pix visível na vitrine — meio preferido em compras pelo celular (41% dos pagamentos mobile, Banco Central 2025).');
   else mob.melhorias.push('Pix não identificado na vitrine — quem compra pelo celular quer pagar em um toque; a ausência visível do Pix pode desistir a compra.');
+  // CTAs — botões de ação primários
+  if(tec.ctaComprar) mob.pontos.push('Botão de compra (CTA primário) identificado no DOM — ação principal acessível sem rolar a página.');
+  else mob.melhorias.push('⚠ Botão de compra (CTA principal) NÃO identificado no DOM — sem ele o cliente não consegue adicionar produtos; isso pode travar completamente a venda. Verificar se o botão está visível sem precisar rolar a página.');
+  if(tec.ctaWhatsapp) mob.pontos.push('Botão de WhatsApp identificado como CTA de atendimento — no mobile o cliente toca e já abre o chat, sem precisar copiar número.');
+  else mob.melhorias.push('Botão de WhatsApp não encontrado — no mobile o cliente espera tocar e ser atendido; a ausência força ele a procurar o contato em outro lugar.');
+  if(tec.ctaTamanho) mob.pontos.push('Botões com tamanho adequado ao toque detectados (padding/height suficiente) — CTAs ergonômicos reduzem erro de toque no celular.');
+  else mob.melhorias.push('Botões aparentemente pequenos ou sem tamanho mínimo definido — no mobile o padrão recomendado é 44px de altura; botão pequeno aumenta erro de toque e abandono.');
   const mobNota=Math.round(Math.min(100,Math.max(0,(mob.pontos.length/(mob.pontos.length+mob.melhorias.length||1))*100)));
+  // flag especial para destaque visual no card
+  const ctaAusente=!tec.ctaComprar;
 
-  return {ui,ux,mob,uiNota,uxNota,mobNota,
+  return {ui,ux,mob,uiNota,uxNota,mobNota,ctaAusente,
     notaGeral:Math.round((uiNota+uxNota+mobNota)/3)};
 }
 
@@ -2023,9 +2249,11 @@ function render(){
   }
   if(state.uxDiag){
     const ud=state.uxDiag;
+    const alertaCta=ud.ctaAusente?'<div class="alert on" style="margin:12px 0 0;display:flex;gap:10px;align-items:flex-start"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" style="flex:none;margin-top:1px"><path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"/><line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg><span><b>Botão de compra não encontrado na loja.</b> Sem o CTA principal visível, o cliente não consegue adicionar produtos — isso pode estar travando a conversão. Verificar se o botão "Comprar" ou "Adicionar ao carrinho" está visível sem precisar rolar a página, e se o tema atual o exibe corretamente na página de produto.</span></div>':'';
     h.push('<div class="section"><div class="sec-title"><span class="kicker">5 · UI / UX / Mobile</span>'+
       '<h2>Diagnóstico de Eficiência e Arquitetura de Vendas</h2></div>'+
       '<p class="sec-sub">Avaliação da identidade visual, da experiência de navegação e do desempenho mobile — baseada no que foi lido diretamente do código da loja.</p>'+
+      alertaCta+
       '<div class="ux-grid">'+
         uxCardHtml('ui','🎨','Identidade Visual e Posicionamento','Padronização, hierarquia, vitrines e confiança',ud.uiNota,ud.ui.pontos,ud.ui.melhorias)+
         uxCardHtml('ux','🧭','Experiência de Navegação e Fricção','Página de produto, carrinho, prova social',ud.uxNota,ud.ux.pontos,ud.ux.melhorias)+
@@ -2080,16 +2308,7 @@ function render(){
 function temaCardHtml(r){ const t=r.tema; const gratis=!t.preco||t.preco<=0; const parcela=t.preco/12; const linkTema=r.linkTema||t.url;
   const fxLabel={entrada:'Básico',intermediario:'Intermediário',premium:'Premium'};
   const fxBadge='<span class="faixa-badge '+r.faixa+'">'+(fxLabel[r.faixa]||r.faixa)+'</span>';
-  const uxT=montarUXTema(r.cap||{},r._demo||{},!!r.demoLida);
-  function uxNotaCor2(n){ return n>=70?'hi':n>=45?'mid':'lo'; }
-  const uxTemaHtml='<div class="ux-tema-grid">'+
-    ['ui','ux','mob'].map((k,i)=>{
-      const labels=['UI','UX','Mobile'];
-      const d=uxT[k]; const nota=uxT[k+'Nota'];
-      const items=[...d.pontos.map(p=>'<li class="ok">✓ '+esc(p)+'</li>'),...d.melhorias.map(m=>'<li class="gap">! '+esc(m)+'</li>')].join('');
-      return '<div class="ux-tema-card"><div class="utc-title">'+labels[i]+'</div><div class="utc-nota '+uxNotaCor2(nota)+'">'+nota+'/100</div><ul>'+items+'</ul></div>';
-    }).join('')+
-  '</div>';
+  const uxTemaHtml=''; // seção UI/UX/Mobile removida dos cards de tema
   const precoHtml = gratis
     ? '<div class="p">Grátis<small>tema gratuito</small></div>'
     : '<div class="p">'+brl(t.preco)+'<small>ou 12x de '+brl(parcela)+'</small></div>';
