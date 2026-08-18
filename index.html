@@ -331,7 +331,7 @@
   </div>
 </div>
 
-<p class="ver-stamp">v2.1.0 · Raio-X + Tema Ideal · Loja de Temas Tray</p>
+<p class="ver-stamp">v2.2.0 · Raio-X + Tema Ideal · Loja de Temas Tray</p>
 <p class="foot">O diagnóstico é montado a partir do que está visível no código público da loja no momento da análise. A recomendação de tema cruza o segmento detectado com as lacunas encontradas; os temas e valores vêm do catálogo da Loja de Temas Tray e podem mudar — confira sempre a página e a demonstração vigentes antes de fechar. Os dados de mercado citados são de referências públicas (Baymard Institute, Opinion Box/Octadesk, ABComm) e servem de apoio ao discurso, não como promessa de resultado.</p>
 
 <script>
@@ -834,16 +834,69 @@ function analisarLoja(html,url,extras){
     linkTipo: (confiavel&&taCat)? 'tema':'busca',
     buscaLink };
 
-  /* estrutura e experiência de compra */
+  /* ── estrutura e experiência de compra (DOM estrutural, não regex em string bruta) ──
+     Cada sinal crítico é verificado no DOM parseado ou em atributos reais de elementos,
+     evitando falsos positivos em scripts, comentários e CSS embutido. */
   const links=[...dom.querySelectorAll('a[href]')];
   const navLinks=[...dom.querySelectorAll('nav a[href], header a[href], [class*="menu"] a[href]')];
+
+  /* BUSCA — input com type=search OU role=search OU placeholder de busca OU form de busca.
+     Só conta se existir elemento interativo real no DOM, não apenas a palavra no HTML. */
+  const _buscaEl=dom.querySelector(
+    'input[type="search"],input[name="q"],input[name="busca"],input[name="search"],'+
+    'input[name="palavra"],input[name="palavra_busca"],'+
+    '[role="search"] input,[class*="search-input"],[class*="busca-input"],'+
+    'form[action*="busca"] input,form[action*="search"] input,'+
+    'input[placeholder*="buscar" i],input[placeholder*="pesquisa" i],input[placeholder*="procurar" i]'
+  );
+  const _buscaDom=!!_buscaEl;
+  /* fallback: autocomplete real no HTML (não em comentário) */
+  const _buscaFallback=/<input[^>]+(autocomplete-search|data-search|js-search-input)[^>]*>/i.test(html);
+  const _busca=_buscaDom||_buscaFallback;
+
+  /* FILTROS — elementos interativos de filtro/ordenação no DOM.
+     Exige presença de checkbox/radio/select/link dentro de container de filtro,
+     ou data-filter/facet em elemento real. NÃO conta a palavra "filtrar" em texto solto. */
+  const _filtroEl=dom.querySelector(
+    '[class*="filtro"]:not(script):not(style) input,'+
+    '[class*="filter"]:not(script):not(style) input,'+
+    '[class*="filtro"]:not(script):not(style) select,'+
+    '[class*="filter"]:not(script):not(style) select,'+
+    '[data-filter],[data-facet],[class*="facet"],[class*="smart-filter"],'+
+    '[class*="filtro-inteligente"],[class*="sf-filter"]'
+  );
+  /* conta também elementos de ordenação que surgem em páginas de categoria */
+  const _ordEl=dom.querySelector('select[name*="order"],select[name*="ordenar"],select[id*="ordenar"],select[id*="order"],[class*="ordenar"] select,[class*="order-by"] select');
+  const _filtros=!!(_filtroEl||_ordEl);
+
+  /* CARRINHO LATERAL — verifica presença de elemento aside/div com atributos específicos
+     de mini-cart, descartando menus e drawers que não são carrinho.
+     Não basta a classe existir no CSS — o elemento precisa estar no DOM. */
+  const _cartEl=dom.querySelector(
+    '[id*="cart-drawer"],[id*="cartDrawer"],[id*="mini-cart"],[id*="minicart"],'+
+    '[class*="cart-drawer"]:not(script),[class*="cart-sidebar"]:not(script),'+
+    '[class*="mini-cart"]:not(script),[class*="minicart"]:not(script),'+
+    '[data-cart-drawer],[data-minicart],[class*="carrinho-lateral"]'
+  );
+  /* confirmação extra: o elemento não pode ser apenas o botão — precisa ser o painel */
+  const _carrinhoLateral=!!(_cartEl&&(_cartEl.tagName==='ASIDE'||_cartEl.tagName==='DIV'||_cartEl.tagName==='SECTION'||_cartEl.getAttribute('role')==='dialog'||(_cartEl.className||'').match(/drawer|sidebar|panel/i)));
+
+  /* MENU MOBILE — elemento real de toggle, não só a classe no CSS */
+  const _menuMobile=!!dom.querySelector(
+    '[class*="hamburger"],[class*="menu-toggle"],[class*="navbar-toggle"],'+
+    '[aria-label*="menu" i][role="button"],[aria-controls*="menu"],[data-target*="menu"],'+
+    'button[class*="mobile-menu"],button[class*="menu-mobile"]'
+  );
+
+  /* SUBMENU — li com filhos ul dentro de nav, ou elementos dropdown reais */
+  const _submenu=!!dom.querySelector('nav li ul,nav li .dropdown,[class*="megamenu"],[class*="mega-menu"],[class*="sub-menu"] a');
+
+  /* CONTA CLIENTE */
+  const _contaCliente=!!dom.querySelector('a[href*="conta"],a[href*="account"],a[href*="login"],a[href*="minha-conta"],[class*="minha-conta"],[class*="my-account"]');
+
   L.exp={
-    busca:/type=["']search|name=["'](q|busca|search|palavra|palavra_busca|palavraBusca)["']|id=["'][^"']*(busca|search)|class=["'][^"']*(search|busca|js-search)|placeholder=["'][^"']*(buscar|pesquis|o que voc[êe])|data-search|autocomplete-search/i.test(htmlAll),
-    filtros:/filtro|filtrar|refin|facet|ordenar por|smart-?filter|filtro-inteligente|sf-filter|data-filter|filtro-de-produtos/i.test(htmlAll),
-    menuMobile:/menu-mobile|mobile-menu|hamburger|navbar-toggle|menu-hamb|drawer/i.test(htmlAll),
-    submenu:/submenu|sub-menu|dropdown|megamenu|mega-menu/i.test(htmlAll),
-    carrinhoLateral:/carrinho[-_]?lateral|cart[-_]?drawer|drawer[-_]?cart|side[-_]?cart|cart[-_]?side\b|cart[-_]?sidebar|sidebar[-_]?cart|mini[-_]?cart|minicart|cart[-_]?preview|preview[-_]?cart|off-?canvas[^"']{0,20}cart|cart[^"']{0,20}off-?canvas|data-cart-drawer|js-cart-side|slide[-_]?cart|cart[-_]?slide|flyout[-_]?cart|cart[-_]?flyout|aside[-_]?cart|cart[-_]?aside/i.test(htmlAll),
-    contaCliente:/minha conta|meus pedidos|entrar\b|login/i.test(htmlAll),
+    busca:_busca, filtros:_filtros, menuMobile:_menuMobile, submenu:_submenu,
+    carrinhoLateral:_carrinhoLateral, contaCliente:_contaCliente,
     itensMenu:[...new Set(navLinks.map(a=>(a.textContent||'').replace(/\s+/g,' ').trim()).filter(t=>t.length>2&&t.length<28))].slice(0,12),
     pagamentos:acharSinais(htmlAll,'pagamento'),
     frete:acharSinais(htmlAll,'frete'),
@@ -868,11 +921,96 @@ function analisarLoja(html,url,extras){
   L.mkt={analytics:acharSinais(html,'analytics'),atendimento:acharSinais(htmlAll,'atendimento'),prova:acharSinais(htmlAll,'prova'),canais:acharSinais(htmlAll,'canais')};
   /* sinais de conversão e confiança consolidados (home + produto) */
   const some=(arr,rx)=>arr.filter(x=>rx.test(x.nome)&&x.ok).length>0;
+
+  /* PIX — verifica presença visual no DOM: ícone/imagem/texto de Pix em elemento visível.
+     Descarta ocorrências em scripts, style e comentários HTML. */
+  const _pixTexto=dom.body?dom.body.textContent.match(/\bpix\b/i):null;
+  const _pixImg=!!dom.querySelector('img[alt*="pix" i],img[src*="pix" i],[class*="pix"]:not(script):not(style),svg[class*="pix"]');
+  const _pixScript=/\bpix\b/i.test((html.match(/<script[\s\S]*?<\/script>/gi)||[]).join(' '));
+  /* Pix real = aparece no corpo visível OU em elemento DOM específico, não só em scripts */
+  const _pixReal=!!(_pixTexto&&!_pixScript)||_pixImg||
+    !!dom.querySelector('[data-payment*="pix"],[data-method*="pix"],[id*="pix"]:not(script)');
+
+  /* PARCELAMENTO — verifica padrão "Nx de R$" no texto visível (não em scripts) */
+  const _textoVisivel=dom.body?dom.body.textContent:'';
+  const _parcelReal=/\d{1,2}\s*x\s*(de\s*)?r\$/i.test(_textoVisivel)||/sem juros/i.test(_textoVisivel)||
+    !!dom.querySelector('[class*="parcel"],[class*="installment"],[data-installment]');
+
+  /* FRETE */
   const freteExplicito=some(L.exp.frete,/C[áa]lculo de frete/);
-  const freteNativoTray=(L.plataforma&&L.plataforma.ehTray); // cálculo de frete é recurso nativo da Tray na página do produto (presente em praticamente todo tema)
+  const freteNativoTray=(L.plataforma&&L.plataforma.ehTray);
   const freteGratisRegua=/falta[m]?\s*(apenas|s[óo])?[^<>.]{0,30}(para|e\s*(ganhe|garanta))?[^<>.]{0,15}frete\s*gr[áa]tis|(adicione|adicionando|compre)\s*(mais\s*)?[^<>.]{0,30}(para|e\s*ganh)[^<>.]{0,15}frete\s*gr[áa]tis|restam?\s*(apenas\s*)?r?\$?\s*[\d.,]+[^<>.]{0,25}frete\s*gr[áa]tis/i.test(htmlAll);
-  L.convSig={ pix:some(L.exp.pagamentos,/Pix/), parcel:/\d{1,2}\s*x\s*(de\s*)?r\$|sem juros|parcel/i.test(htmlAll), freteCalc:(freteExplicito||freteNativoTray), freteInferido:(!freteExplicito&&freteNativoTray), freteGratisRegua:freteGratisRegua, freteGratis:some(L.exp.frete,/Frete gr[áa]tis/)||freteGratisRegua, prazo:some(L.exp.frete,/Prazo/), cupom:/cupom|c[óo]digo de desconto/i.test(htmlAll), checkoutInterno:!L.exp.checkoutExterno, relacionados:/relacionados|quem viu|voc[êe] tamb[ée]m|compre junto|leve junto|complete o look/i.test(htmlAll), urgencia:/[úu]ltimas unidades|estoque baixo|acaba em|oferta por tempo|restam \d|em alta/i.test(htmlAll), destaques:/mais vendidos|destaques|best ?sellers|em alta|queridinhos/i.test(htmlAll) };
-  L.trustSig={ avaliacoes:some(L.mkt.prova,/Avalia/), depoimentos:some(L.mkt.prova,/Depoiment/), selo:some(L.mkt.prova,/Selo/), reclameAqui:some(L.mkt.prova,/Reclame/), cnpj:some(L.mkt.prova,/CNPJ/), politicaTroca:some(L.mkt.prova,/troca/i), atendimento:L.mkt.atendimento.some(a=>a.ok), whatsapp:some(L.mkt.atendimento,/WhatsApp/) };
+
+  /* AVALIAÇÕES — elemento real de rating no DOM, não só a palavra */
+  const _avaliacaoEl=dom.querySelector(
+    '[class*="review"],[class*="avalia"],[class*="rating"],[class*="star-rating"],'+
+    '[itemprop="ratingValue"],[itemprop="reviewCount"],'+
+    'script[type*="ld+json"]'  // schema.org AggregateRating conta
+  );
+  /* confirma que não é só classe CSS de ícone decorativo — precisa de contexto de review */
+  const _avaliacaoReal=!!_avaliacaoEl&&(
+    /trustvox|yourviews|opinionbox|konfio|reclame/i.test(htmlAll)||
+    /aggregaterating|reviewcount|ratingvalue/i.test(htmlAll)||
+    !!dom.querySelector('[class*="avalia"]:not(style) [class*="star"],[class*="rating-stars"],[class*="estrelas"]')
+  );
+
+  /* RÉGUA DE FRETE GRÁTIS — texto dinâmico no carrinho/header */
+  const _freteGratisReguaReal=/falta[m]?\s*(apenas|só)?[^<>]{0,30}frete\s*grátis|adicione[^<>]{0,30}frete\s*grátis|restam?\s*r?\$?\s*[\d.,]+[^<>]{0,25}frete\s*grátis/i.test(_textoVisivel);
+
+  /* RELACIONADOS / COMPRE JUNTO — seção real de produtos no DOM */
+  const _relacionadosEl=dom.querySelector(
+    '[class*="relacionados"],[class*="related"],[class*="compre-junto"],[class*="cross-sell"],'+
+    '[class*="complete-look"],[class*="leve-junto"],[class*="upsell"]'
+  );
+  const _relacionadosReal=!!_relacionadosEl&&(_relacionadosEl.querySelectorAll('a,img').length>0);
+
+  /* DESTAQUES / MAIS VENDIDOS — vitrine real com produtos */
+  const _destaquesEl=dom.querySelector(
+    '[class*="mais-vendidos"],[class*="best-seller"],[class*="destaques"],[class*="em-alta"],'+
+    '[class*="featured"],[class*="hot-products"],[class*="queridinhos"]'
+  );
+  const _destaquesReal=!!_destaquesEl&&(_destaquesEl.querySelectorAll('a,img').length>1);
+
+  /* CUPOM */
+  const _cupomEl=!!dom.querySelector('input[name*="cupom"],input[name*="coupon"],input[placeholder*="cupom" i],[class*="cupom"],[class*="coupon"]');
+  const _cupomTexto=/cupom de desconto|código de desconto|tem um cupom/i.test(_textoVisivel);
+
+  /* WHATSAPP — link real, não só ícone */
+  const _waEl=dom.querySelector('a[href*="wa.me"],a[href*="api.whatsapp"],a[href*="whatsapp.com/send"]');
+
+  /* POLÍTICA DE TROCA — link real no rodapé/nav */
+  const _trocaEl=dom.querySelector(
+    'a[href*="troca"],a[href*="devolucao"],a[href*="devolu"],a[href*="reembolso"],'+
+    'a[href*="politica"],a[href*="retorno"],[class*="politica-troca"]'
+  );
+  const _politicaTroca=!!_trocaEl||/política\s*de\s*(troca|devolução)|trocas?\s*e\s*devolu/i.test(_textoVisivel);
+
+  /* CNPJ — no texto visível do rodapé */
+  const _rodape=dom.querySelector('footer')||dom.body;
+  const _cnpjReal=_rodape?/\d{2}\.\d{3}\.\d{3}\/\d{4}-\d{2}|cnpj/i.test(_rodape.textContent):false;
+
+  L.convSig={
+    pix:_pixReal, parcel:_parcelReal,
+    freteCalc:(freteExplicito||freteNativoTray), freteInferido:(!freteExplicito&&freteNativoTray),
+    freteGratisRegua:_freteGratisReguaReal||freteGratisRegua,
+    freteGratis:some(L.exp.frete,/Frete gr[áa]tis/)||_freteGratisReguaReal||freteGratisRegua,
+    prazo:some(L.exp.frete,/Prazo/),
+    cupom:_cupomEl||_cupomTexto,
+    checkoutInterno:!L.exp.checkoutExterno,
+    relacionados:_relacionadosReal,
+    urgencia:/últimas unidades|estoque baixo|acaba em|oferta por tempo|restam \d/i.test(_textoVisivel),
+    destaques:_destaquesReal
+  };
+  L.trustSig={
+    avaliacoes:_avaliacaoReal,
+    depoimentos:some(L.mkt.prova,/Depoiment/),
+    selo:some(L.mkt.prova,/Selo/),
+    reclameAqui:some(L.mkt.prova,/Reclame/),
+    cnpj:_cnpjReal,
+    politicaTroca:_politicaTroca,
+    atendimento:L.mkt.atendimento.some(a=>a.ok),
+    whatsapp:!!_waEl
+  };
   /* perfil e segmento */
   const catsTxt=[...dom.querySelectorAll('nav a,header a,[class*="menu"] a,[class*="categor"] a,[class*="breadcrumb"] a')].map(a=>(a.textContent||'').replace(/\s+/g,' ').trim()).filter(t=>t.length>1&&t.length<40).join(' ');
   const kw=meta('keywords')||'';
@@ -926,20 +1064,25 @@ function montarScore(L){
 function montarFortes(L){
   const F=[]; const add=(t,p)=>F.push({titulo:t,txt:p});
   const e=L.exp,c=L.convSig,t=L.trustSig,tec=L.tec,s=L.seo;
-  if(tec.viewport) add('Loja adaptada para o celular','O layout tem configuração responsiva — ponto essencial, já que 73% dos brasileiros preferem comprar pelo celular.');
-  if(tec.velocidade==='rápida') add('Página inicial leve','A home carrega leve (~'+tec.pesoKb+' KB, '+tec.scripts+' scripts). Velocidade sustenta a conversão, principalmente no mobile.');
-  if(e.busca&&e.filtros) add('Busca e filtros ativos','A loja oferece busca e filtros, o que ajuda o cliente a chegar ao produto sem se perder no catálogo.');
-  else if(e.busca) add('Busca disponível','A loja tem campo de busca — quem usa a busca costuma comprar mais.');
-  if(c.pix&&c.parcel) add('Pix e parcelamento à mostra','Pix e parcelamento aparecem na loja — os dois meios preferidos do brasileiro, com 88% de escolha cada.');
-  if(c.freteCalc) add('Frete calculado antes do carrinho','O cliente vê o frete antes de finalizar — evita a surpresa que faz 47% abandonarem no checkout.');
-  if(c.freteGratis) add('Regra de frete grátis','Há frete grátis sinalizado, um dos gatilhos mais fortes para subir o ticket médio.');
-  if(c.freteGratisRegua) add('Régua de frete grátis no carrinho','A loja mostra quanto falta para o frete grátis ("Falta R$ X…") — um empurrão direto no ticket médio a cada item adicionado.');
-  if(e.carrinhoLateral) add('Carrinho lateral (mini-cart)','Ao adicionar um produto, a loja abre uma prévia lateral do carrinho — o cliente continua comprando sem sair da página, o que reduz o abandono.');
-  if(t.avaliacoes) add('Prova social presente','A loja exibe avaliações — 64% dos consumidores checam avaliações antes de comprar em loja que não conhecem.');
-  if(t.reclameAqui||t.selo||t.cnpj) add('Sinais de confiança visíveis','Há selos, CNPJ ou Reclame Aqui à mostra, o que reduz o receio de fraude (93% já desistiram por esse medo).');
-  if(t.whatsapp) add('Atendimento por WhatsApp','O WhatsApp está na loja — canal onde boa parte da dúvida vira venda no Brasil.');
-  if(c.relacionados) add('Produtos relacionados na página','A loja sugere itens relacionados, o que puxa mais de um produto por pedido.');
-  if(s.blog) add('Conteúdo próprio / blog','Há conteúdo próprio, que alimenta o tráfego orgânico e sustenta a venda quando a verba de anúncio cai.');
+  if(tec.viewport) add('Loja adaptada para o celular','Meta viewport confirmada no HTML — o layout se ajusta ao tamanho do celular. Essencial: 73% dos brasileiros preferem comprar pelo mobile.');
+  if(tec.velocidade==='rápida') add('Página inicial leve e rápida','Home com ~'+tec.pesoKb+' KB e '+tec.scripts+' scripts — abaixo dos limiares de alerta. Velocidade sustenta a conversão, principalmente no celular.');
+  if(e.busca&&e.filtros) add('Busca e filtros confirmados no DOM','Campo de busca e elemento de filtro/ordenação encontrados como elementos interativos reais na página — não apenas no CSS. Quem filtra compra mais.');
+  else if(e.busca) add('Campo de busca confirmado','Input de busca encontrado como elemento real no DOM — quem usa a busca tem intenção de compra alta.');
+  if(c.pix&&c.parcel) add('Pix e parcelamento visíveis na vitrine','Pix identificado no corpo visível da página e parcelamento no formato "Nx de R$" lido do texto da loja — os dois meios preferidos do brasileiro confirmados.');
+  else if(c.pix) add('Pix visível na vitrine','Pix identificado no corpo visível da loja — meio preferido de 88% dos compradores brasileiros.');
+  else if(c.parcel) add('Parcelamento visível na vitrine','Parcelamento no formato "Nx de R$" confirmado no texto da página — facilita a decisão de quem compra produto de ticket maior.');
+  if(c.freteCalc&&!c.freteInferido) add('Frete calculado antes do carrinho','Widget de cálculo de frete por CEP confirmado na página de produto lida — evita a surpresa que faz 47% abandonarem no checkout.');
+  else if(c.freteCalc&&c.freteInferido) add('Frete disponível (recurso Tray)','Loja Tray com cálculo de frete nativo — o widget aparece na página do produto via plataforma.');
+  if(c.freteGratisRegua) add('Régua de frete grátis ativa','Texto dinâmico "Falta R$ X para frete grátis" confirmado no HTML — gatilho direto de aumento de ticket médio.');
+  else if(c.freteGratis) add('Frete grátis sinalizado','Frete grátis encontrado no texto da loja — um dos gatilhos mais fortes para aumentar o ticket médio.');
+  if(e.carrinhoLateral) add('Carrinho lateral (mini-cart) confirmado','Elemento de carrinho lateral encontrado no DOM como painel real (aside/div com role dialog) — o cliente adiciona produtos sem sair da página.');
+  if(t.avaliacoes) add('Avaliações de clientes confirmadas','Sistema de avaliações detectado por schema.org ou provedor (Trustvox/Yourviews) — prova social que 64% dos compradores checam antes de comprar em loja nova.');
+  if(t.whatsapp) add('Atendimento por WhatsApp com link real','Link de WhatsApp (wa.me) encontrado no DOM — canal onde boa parte da dúvida vira venda no Brasil.');
+  if(t.politicaTroca) add('Política de troca visível com link real','Link de política de troca/devolução encontrado no rodapé — sinal de segurança que destrava a decisão de compra.');
+  if(t.cnpj) add('CNPJ no rodapé','CNPJ no formato correto encontrado no rodapé da loja — sinal de empresa real que reduz o medo de fraude.');
+  if(c.relacionados) add('Produtos relacionados com conteúdo real','Seção de relacionados/compre junto encontrada com produtos reais — puxa mais itens por pedido sem custo de aquisição.');
+  if(c.destaques) add('Vitrine de destaques com produtos','Seção de mais vendidos/destaques com produtos encontrada — curadoria que encurta a jornada de quem chega sem saber o que quer.');
+  if(s.blog) add('Conteúdo próprio / blog','Blog ou seção de conteúdo detectada — alimenta o tráfego orgânico e sustenta a venda quando a verba de anúncio cai.');
   return F.slice(0,8);
 }
 function montarFracos(L, atualPag){
