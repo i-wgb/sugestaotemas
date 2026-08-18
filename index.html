@@ -326,7 +326,7 @@
     <div class="note"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#2551A0" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><path d="M12 8h.01M11 12h1v4h1"/></svg><span>A leitura das páginas usa um relay público, porque o navegador não acessa outros sites diretamente. Se um link não carregar, clique em analisar de novo ou ative o modo de colar código-fonte. Tudo o que aparece aqui é lido da página pública no momento da análise; a demonstração do tema deve ser conferida ao vivo com o lojista antes de fechar.</span></div>
 
     <div class="panel">
-      <div class="panel-head"><span class="eyebrow">Dados da análise</span><span class="hint">Leva de 10 a 40 segundos</span></div>
+      <div class="panel-head"><span class="eyebrow">Dados da análise</span></div>
       <div class="fields">
         <div class="field">
           <label for="loja-url">Endereço da loja do lojista</label>
@@ -363,7 +363,7 @@
   </div>
 </div>
 
-<p class="ver-stamp">v2.5.6 · Raio-X + Tema Ideal · Loja de Temas Tray</p>
+<p class="ver-stamp">v2.5.9 · Raio-X + Tema Ideal · Loja de Temas Tray</p>
 <p class="foot">O diagnóstico é montado a partir do que está visível no código público da loja no momento da análise. A recomendação de tema cruza o segmento detectado com as lacunas encontradas; os temas e valores vêm do catálogo da Loja de Temas Tray e podem mudar — confira sempre a página e a demonstração vigentes antes de fechar. Os dados de mercado citados são de referências públicas (Baymard Institute, Opinion Box/Octadesk, ABComm) e servem de apoio ao discurso, não como promessa de resultado.</p>
 
 <script>
@@ -887,8 +887,9 @@ function analisarLoja(html,url,extras){
   const _busca=_buscaDom||_buscaFallback;
 
   /* FILTROS — elementos interativos de filtro/ordenação no DOM.
-     Exige presença de checkbox/radio/select/link dentro de container de filtro,
-     ou data-filter/facet em elemento real. NÃO conta a palavra "filtrar" em texto solto. */
+     Verificado no HTML completo (home + produto + categoria quando disponível).
+     Cobre: container de filtro com inputs, sidebar com checkboxes, botão Filtrar,
+     select de ordenação, data-filter/facet. NÃO conta palavra "filtrar" em texto solto. */
   const _filtroEl=dom.querySelector(
     '[class*="filtro"]:not(script):not(style) input,'+
     '[class*="filter"]:not(script):not(style) input,'+
@@ -897,9 +898,30 @@ function analisarLoja(html,url,extras){
     '[data-filter],[data-facet],[class*="facet"],[class*="smart-filter"],'+
     '[class*="filtro-inteligente"],[class*="sf-filter"]'
   );
-  /* conta também elementos de ordenação que surgem em páginas de categoria */
+  /* select de ordenação */
   const _ordEl=dom.querySelector('select[name*="order"],select[name*="ordenar"],select[id*="ordenar"],select[id*="order"],[class*="ordenar"] select,[class*="order-by"] select');
-  const _filtros=!!(_filtroEl||_ordEl);
+  /* sidebar/aside com checkboxes — padrão dos temas Tray em página de categoria
+     (vscintos, entre outros: sidebar lateral com checkboxes de cor/tamanho/preço) */
+  const _sidebarFiltro=(()=>{
+    const sidebar=dom.querySelector('aside,[class*="sidebar"],[class*="lateral"],[class*="left-col"],[class*="col-filtro"],[class*="filtros"]');
+    if(sidebar&&sidebar.querySelectorAll('input[type="checkbox"],input[type="radio"]').length>=2) return sidebar;
+    // botão "Filtrar" explícito (padrão mobile de alguns temas Tray)
+    const btnFiltrar=[...dom.querySelectorAll('button,a,[role="button"]')].find(el=>/^filtrar$/i.test((el.textContent||'').trim()));
+    if(btnFiltrar) return btnFiltrar;
+    return null;
+  })();
+  /* busca também no HTML de categoria quando disponível nos extras */
+  const _filtrosExtras=(()=>{
+    const catHtml=(extras&&extras.categoriaHtml)||'';
+    if(!catHtml) return false;
+    const catDom=new DOMParser().parseFromString(catHtml,'text/html');
+    if(catDom.querySelector('[class*="filtro"] input,[class*="filter"] input,[data-filter],[class*="facet"]')) return true;
+    if(catDom.querySelector('select[name*="order"],select[name*="ordenar"]')) return true;
+    const sb=catDom.querySelector('aside,[class*="sidebar"],[class*="lateral"]');
+    if(sb&&sb.querySelectorAll('input[type="checkbox"],input[type="radio"]').length>=2) return true;
+    return false;
+  })();
+  const _filtros=!!(_filtroEl||_ordEl||_sidebarFiltro||_filtrosExtras);
 
   /* CARRINHO LATERAL — detecta o PAINEL do mini-cart, não apenas o link/ícone do carrinho.
      Baseado em padrões reais dos temas Tray coletados de lojas ao vivo:
@@ -1007,12 +1029,34 @@ function analisarLoja(html,url,extras){
   const imgs=(html.match(/<img\b/gi)||[]).length;
   const pesoKb=Math.round(html.length/1024);
   const dominios=new Set((html.match(/https?:\/\/([a-z0-9.-]+)/gi)||[]).map(u=>u.replace(/^https?:\/\//i,'').split('/')[0].toLowerCase()));
-  /* CTAs — botões de ação primários na loja (comprar, adicionar, whatsapp) */
-  const _ctaComprar=!!dom.querySelector(
-    'button[class*="comprar"],button[class*="buy"],button[class*="add-to-cart"],'+
-    'button[class*="adicionar"],a[class*="btn-comprar"],a[class*="btn-buy"],'+
-    '[class*="product-btn"],[class*="btn-produto"],[data-action*="buy"],[data-action*="cart"]'
-  );
+  /* CTAs — botões de ação primários na loja (comprar, adicionar, whatsapp)
+     Cobre: classes específicas de compra, texto "Comprar"/"Adicionar" no botão,
+     data-action da Tray, e botões de submit em form de produto. */
+  const _ctaComprar=(()=>{
+    // 1) classes específicas de ação de compra
+    if(dom.querySelector(
+      'button[class*="comprar"],button[class*="buy"],button[class*="add-to-cart"],'+
+      'button[class*="adicionar"],a[class*="btn-comprar"],a[class*="btn-buy"],'+
+      '[class*="product-btn"],[class*="btn-produto"],[data-action*="buy"],[data-action*="cart"],'+
+      'button[class*="buy-btn"],button[class*="buyBtn"],[class*="add-cart"],[class*="addCart"],'+
+      '[class*="btn-add"],[class*="btnAdd"],[class*="purchase"],[data-js*="buy"],[data-js*="cart"]'
+    )) return true;
+    // 2) qualquer botão ou link com texto exato "Comprar" ou "Adicionar ao carrinho"
+    // (padrão de temas Tray que usam btn genérico + texto — ex: vscintos)
+    const btns=[...dom.querySelectorAll('button,a[role="button"],[type="submit"]')];
+    if(btns.some(el=>/^(comprar|adicionar ao carrinho|add to cart|compre agora|buy now)$/i.test((el.textContent||'').trim()))) return true;
+    // 3) form de produto com botão submit (padrão Tray nativo)
+    if(dom.querySelector('form[action*="carrinho"] button,form[action*="cart"] button,[data-app*="product"] button')) return true;
+    // 4) verifica também nas páginas de produto lidas (htmlAll inclui home + produto)
+    if(htmlP){
+      const domP=new DOMParser().parseFromString(htmlP,'text/html');
+      if(domP.querySelector('button[class*="comprar"],button[class*="buy"],button[class*="add-to-cart"],[data-action*="buy"],[data-action*="cart"]')) return true;
+      const btnsP=[...domP.querySelectorAll('button,a[role="button"],[type="submit"]')];
+      if(btnsP.some(el=>/^(comprar|adicionar ao carrinho|add to cart|compre agora|buy now)$/i.test((el.textContent||'').trim()))) return true;
+      if(domP.querySelector('form[action*="carrinho"] button,form[action*="cart"] button')) return true;
+    }
+    return false;
+  })();
   const _ctaWhatsapp=!!dom.querySelector('a[href*="wa.me"],a[href*="api.whatsapp"],[class*="btn-whatsapp"],[class*="whatsapp-btn"]');
   const _ctaVisivel=_ctaComprar||!!dom.querySelector('button[type="submit"],[class*="btn-primary"],[class*="cta-"]');
   /* tamanho mínimo dos botões — verifica se há style inline com height/padding razoável ou classe de tamanho */
@@ -1823,23 +1867,37 @@ async function recomendarTemas(L,onStep){
   // lê demos de todos os avaliados elegíveis (top 8) em paralelo — não só dos escolhidos
   const topAvaliados=avaliados.slice(0,8);
   const demoTopResultados=await Promise.all(topAvaliados.map(r=>verificarDemo(r.cap)));
+  // Peso de penalização por recurso — recursos críticos para conversão penalizam mais
+  const PESO_PENAL={
+    avaliacoes:20,freteProduto:20,relacionados:16,filtros:16,
+    busca:14,carrinhoLateral:14,destaques:10,zoom:10
+  };
   // recalibra cada candidato com os dados da demo
   topAvaliados.forEach((r,i)=>{
     const demo=demoTopResultados[i]||{};
     r._demo=demo;
     r._demoLida=!!demo._lida;
-    if(!demo._lida) return; // demo inacessível: mantém tudo como estava
+    if(!demo._lida) return;
     // ganhos confirmados na demo: só conta se existe na ficha E na demo
     r.ganhosReaisDemo=r.ganhosReais.filter(g=>demo[g]!==false);
     // se todos os ganhos reais foram desconfirmados pela demo, deixa de ser upgrade
     if(r.ganhosReais.length>0 && r.ganhosReaisDemo.length===0 && r.count!=null && countAtual!=null && r.count<=countAtual){
       r.ehUpgrade=false; r.melhor=false;
     }
-    // penaliza o score proporcionalmente aos ganhos não confirmados
-    const perdidos=r.ganhosReais.length - r.ganhosReaisDemo.length;
-    if(perdidos>0) r.sc=Math.max(0, r.sc - perdidos*12);
+    // penaliza ganhos reais desconfirmados com peso por importância do recurso
+    const ganhosPerdidos=r.ganhosReais.filter(g=>demo[g]===false);
+    if(ganhosPerdidos.length>0){
+      const penal=ganhosPerdidos.reduce((acc,g)=>acc+(PESO_PENAL[g]||12),0);
+      r.sc=Math.max(0, r.sc - penal);
+    }
+    // penaliza também recursos da ficha (não ganhos) desconfirmados — confiabilidade geral
+    const fichaFalhou=RECURSOS_DEMO.filter(k=>!r.ganhosReais.includes(k)&&r.cap[k]&&demo[k]===false);
+    if(fichaFalhou.length>0){
+      const penalExtra=fichaFalhou.reduce((acc,g)=>acc+(PESO_PENAL[g]||8)*0.5,0);
+      r.sc=Math.max(0, r.sc - penalExtra);
+    }
   });
-  // re-ordena após recalibração
+  // re-ordena após recalibração com pesos diferenciados
   topAvaliados.sort((a,b)=>b.sc-a.sc);
 
   // 6) seleção final: só melhores e nunca inferiores; diversidade de faixa
@@ -2091,8 +2149,7 @@ function montarUXDiag(L){
   if(tec.lazy) mob.pontos.push('Lazy loading de imagens detectado — imagens carregam sob demanda, acelerando a percepção de velocidade no celular.');
   else mob.melhorias.push('Sem lazy loading detectado — todas as imagens carregam de uma vez; no mobile isso atrasa o conteúdo visível e aumenta o abandono.');
   // WebP
-  if(tec.webp) mob.pontos.push('Imagens em formato WebP detectadas — formato moderno que reduz o peso das imagens sem perda de qualidade visível.');
-  else mob.melhorias.push('Imagens não estão em WebP — conversão para WebP reduz o peso em até 30% sem perda visual, melhorando a velocidade especialmente no 4G.');
+  // WebP removido do diagnóstico (não relevante para o contexto de venda de temas)
   // Menu mobile
   if(e.menuMobile) mob.pontos.push('Menu mobile (hamburger/toggle) identificado — navegação por categorias acessível no celular.');
   else mob.melhorias.push('Menu mobile não detectado — sem toggle de menu no celular, o cliente não encontra as categorias e não navega.');
@@ -2196,11 +2253,24 @@ async function run(){
       let urls=[]; if(extras.produtoUrl) urls.push(extras.produtoUrl);
       acharLinksProduto(html,org,4).forEach(u=>{ if(!urls.includes(u)) urls.push(u); });
       urls=urls.slice(0,3);
-      if(urls.length){ lines[1]={s:'load',t:'Lendo '+urls.length+' página(s) de produto para conferir frete, avaliações e mais…'}; setStatus(lines);
+      if(urls.length){ lines[1]={s:'load',t:'Lendo '+urls.length+' página(s) de produto + categoria…'}; setStatus(lines);
         const htmls=await Promise.all(urls.map(u=>fetchText(u,13000).catch(()=>'')));
         const validos=htmls.filter(h=>h&&h.length>300);
         if(validos.length){ extras.produtoHtml=validos.join('\n<!--BREAK-->\n'); extras.produtosLidos=validos.length; }
-      } }
+      }
+      // lê também uma página de categoria para detectar filtros inteligentes
+      try{
+        const navHrefs=[...new DOMParser().parseFromString(html,'text/html').querySelectorAll('nav a[href],header a[href],[class*="menu"] a[href]')]
+          .map(a=>a.getAttribute('href')||'').filter(h=>h&&!/^(#|javascript|mailto|tel)/i.test(h)&&!/\/(produto|product)\//i.test(h));
+        let catUrl='';
+        for(const h of navHrefs){ const u=resolveUrl(h,org); if(u&&u!==org&&/\/(categoria|categorias|category|colec|departamento|busca)/i.test(u)){catUrl=u;break;} }
+        if(!catUrl&&navHrefs.length) catUrl=resolveUrl(navHrefs[0],org);
+        if(catUrl&&catUrl!==org){
+          const catHtml=await fetchText(catUrl,12000).catch(()=>'');
+          if(catHtml&&catHtml.length>300) extras.categoriaHtml=catHtml;
+        }
+      }catch(e){}
+    }
     lines[1]={s:extras.produtoHtml?'ok':(extras.sitemap||extras.robots?'ok':'err'),t:(extras.sitemap?'Catálogo: '+extras.produtos+' produtos, '+extras.categorias+' categorias':'Sitemap não lido')+(extras.produtoHtml?' · página de produto lida ✓':' · produto não lido (só a home)')};
     setStatus(lines);
     lines[2]={s:'load',t:'Analisando experiência e conversão…'}; setStatus(lines);
@@ -2233,7 +2303,7 @@ function gauge(v){ const r=38,c=2*Math.PI*r,off=c*(1-v/100); const col=v>=70?'#0
   return '<svg width="94" height="94" viewBox="0 0 94 94"><circle cx="47" cy="47" r="'+r+'" fill="none" stroke="rgba(255,255,255,.16)" stroke-width="9"/><circle cx="47" cy="47" r="'+r+'" fill="none" stroke="'+col+'" stroke-width="9" stroke-linecap="round" stroke-dasharray="'+c.toFixed(1)+'" stroke-dashoffset="'+off.toFixed(1)+'" transform="rotate(-90 47 47)"/><text x="47" y="54" text-anchor="middle" font-size="25" font-weight="700">'+v+'</text></svg>'; }
 function ringMatch(v){ const r=20,c=2*Math.PI*r,off=c*(1-v/100); const col=v>=80?'#00A0DC':v>=65?'#E1A21E':'#7A86B8';
   return '<svg width="52" height="52" viewBox="0 0 52 52"><circle cx="26" cy="26" r="'+r+'" fill="none" stroke="#EEF2F6" stroke-width="6"/><circle cx="26" cy="26" r="'+r+'" fill="none" stroke="'+col+'" stroke-width="6" stroke-linecap="round" stroke-dasharray="'+c.toFixed(1)+'" stroke-dashoffset="'+off.toFixed(1)+'" transform="rotate(-90 26 26)"/><text x="26" y="30" text-anchor="middle" font-family="Satoshi" font-size="14" font-weight="700" fill="#00012A">'+v+'</text></svg>'; }
-function chipsHtml(arr){ return '<div class="chips">'+arr.map(s=>'<span class="chip '+(s.ok?'y':'n')+'">'+(s.ok?'✓':'·')+' '+esc(s.nome)+'</span>').join('')+'</div>'; }
+function chipsHtml(arr){ const found=arr.filter(s=>s.ok); if(!found.length) return '<span style="font-size:12px;color:var(--muted)">Nenhum identificado</span>'; return '<div class="chips">'+found.map(s=>'<span class="chip y">✓ '+esc(s.nome)+'</span>').join('')+'</div>'; }
 function toggColl(el){ const b=el.parentElement.querySelector('.coll-body'); if(!b) return; const open=b.hasAttribute('hidden'); if(open){ b.removeAttribute('hidden'); el.classList.add('open'); } else { b.setAttribute('hidden',''); el.classList.remove('open'); } }
 window.toggColl=toggColl;
 function guiaHtml(){ const g=state.guia; if(!g) return '';
