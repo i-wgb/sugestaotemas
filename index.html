@@ -363,7 +363,7 @@
   </div>
 </div>
 
-<p class="ver-stamp">v2.5.9 · Raio-X + Tema Ideal · Loja de Temas Tray</p>
+<p class="ver-stamp">v2.5.9b · Raio-X + Tema Ideal · Loja de Temas Tray</p>
 <p class="foot">O diagnóstico é montado a partir do que está visível no código público da loja no momento da análise. A recomendação de tema cruza o segmento detectado com as lacunas encontradas; os temas e valores vêm do catálogo da Loja de Temas Tray e podem mudar — confira sempre a página e a demonstração vigentes antes de fechar. Os dados de mercado citados são de referências públicas (Baymard Institute, Opinion Box/Octadesk, ABComm) e servem de apoio ao discurso, não como promessa de resultado.</p>
 
 <script>
@@ -1055,6 +1055,15 @@ function analisarLoja(html,url,extras){
       if(btnsP.some(el=>/^(comprar|adicionar ao carrinho|add to cart|compre agora|buy now)$/i.test((el.textContent||'').trim()))) return true;
       if(domP.querySelector('form[action*="carrinho"] button,form[action*="cart"] button')) return true;
     }
+    // 5) padrão Vue da Tray: aria-label="Comprar" ou v-on:click com addToCart/comprar
+    // (botão renderizado por Vue sem classe específica — padrão de vários temas Tray)
+    if(dom.querySelector('[aria-label="Comprar" i],[aria-label="Adicionar ao carrinho" i],[aria-label="Add to cart" i]')) return true;
+    if(/v-on:click=["'][^"']*addToCart|v-on:click=["'][^"']*comprar|@click=["'][^"']*addToCart|@click=["'][^"']*comprar/i.test(html)) return true;
+    // 6) texto "Comprar pelo Whats" indica que há botão comprar — WhatsApp é complementar ao comprar
+    if(dom.querySelector('a[href*="whatsapp"][class*="buy" i],a[href*="wa.me"],[class*="btn-whats"],[class*="whatsapp-buy"]')) return true;
+    // 7) texto "Comprar" em qualquer elemento filho folha (sem filhos) — cobre Vue que renderiza texto no span
+    const todosEls=[...dom.querySelectorAll('*')];
+    if(todosEls.some(el=>el.children.length===0&&/^comprar$/i.test((el.textContent||'').trim()))) return true;
     return false;
   })();
   const _ctaWhatsapp=!!dom.querySelector('a[href*="wa.me"],a[href*="api.whatsapp"],[class*="btn-whatsapp"],[class*="whatsapp-btn"]');
