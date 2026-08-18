@@ -363,7 +363,7 @@
   </div>
 </div>
 
-<p class="ver-stamp">v2.5.4 · Raio-X + Tema Ideal · Loja de Temas Tray</p>
+<p class="ver-stamp">v2.5.5 · Raio-X + Tema Ideal · Loja de Temas Tray</p>
 <p class="foot">O diagnóstico é montado a partir do que está visível no código público da loja no momento da análise. A recomendação de tema cruza o segmento detectado com as lacunas encontradas; os temas e valores vêm do catálogo da Loja de Temas Tray e podem mudar — confira sempre a página e a demonstração vigentes antes de fechar. Os dados de mercado citados são de referências públicas (Baymard Institute, Opinion Box/Octadesk, ABComm) e servem de apoio ao discurso, não como promessa de resultado.</p>
 
 <script>
@@ -902,29 +902,46 @@ function analisarLoja(html,url,extras){
   const _filtros=!!(_filtroEl||_ordEl);
 
   /* CARRINHO LATERAL — detecta o PAINEL do mini-cart, não apenas o link/ícone do carrinho.
-     Toda loja Tray tem um link para /carrinho no header — isso NÃO é carrinho lateral.
-     Carrinho lateral = painel/drawer que abre sem sair da página ao clicar em "Comprar".
-     
-     Critério obrigatório: deve existir um elemento de PAINEL real no DOM:
-     - Elemento aside, div ou section com id/class específico de drawer/mini-cart
-     - data-app="cart" (padrão nativo da Tray para mini-cart)
-     - role="dialog" num elemento de carrinho
-     - Elemento hidden/inactive no DOM esperando ser aberto via JS (padrão dos temas)
-     
-     NÃO conta: simples <a href="/carrinho">, ícone do carrinho no header, contador de itens. */
-  
-  /* Camada 1: data-app="cart" ou "cart.fly" — padrão nativo Tray de mini-cart */
-  const _cartDataApp=dom.querySelector('[data-app="cart"],[data-app*="cart.fly"],[data-app*="cart.side"],[data-app*="cart.drawer"]');
-  
-  /* Camada 2: elementos de painel/drawer explícitos — classes e ids que designam o PAINEL,
-     não o botão. Excluímos <a> e <button> pois são apenas acionadores, não o painel. */
+     Baseado em padrões reais dos temas Tray coletados de lojas ao vivo:
+     - id="cart" + class="dropdown cart__dropdown" (padrão Vue da Tray)
+     - class="cart__dropdown", "cart__vue", "cart-backdrop" (variantes do mesmo padrão)
+     - data-app="cart" (padrão nativo Tray)
+     - Drawers explícitos: cart-drawer, mini-cart, cart-slide, cart-panel etc.
+     NÃO conta: <a href="/carrinho">, ícone/botão do carrinho, contador de itens. */
+
+  /* Camada 1: data-app="cart" — padrão nativo Tray */
+  const _cartDataApp=dom.querySelector(
+    '[data-app="cart"],[data-app*="cart.fly"],[data-app*="cart.side"],[data-app*="cart.drawer"]'
+  );
+
+  /* Camada 2: padrão Vue/Dropdown da Tray — id="cart" com classe dropdown,
+     ou classes específicas do painel (com __ ou - indicando componente, não link) */
+  const _cartVue=(()=>{
+    // id="cart" deve ser um elemento de painel (section/div/aside), não link/botão
+    const byId=dom.querySelector('#cart');
+    if(byId&&byId.tagName!=='A'&&byId.tagName!=='BUTTON'&&byId.children.length>=1) return byId;
+    // classes de componente de carrinho lateral (padrão __ ou sufixo específico)
+    const clsSels=[
+      '[class*="cart__dropdown"]','[class*="cart__vue"]','[class*="cart-backdrop"]',
+      '[class*="cart__container"]','[class*="cart__body"]','[class*="cart__wrapper"]',
+      '[class*="cart__content"]','[class*="cart__panel"]','[class*="cart__fly"]'
+    ];
+    for(const s of clsSels){
+      const el=dom.querySelector(s);
+      if(el&&el.tagName!=='A'&&el.tagName!=='BUTTON') return el;
+    }
+    return null;
+  })();
+
+  /* Camada 3: drawers explícitos por id/class — padrão dos temas com nome descritivo */
   const _cartDrawer=(()=>{
     const sels=[
       '[id*="cart-drawer"]','[id*="cartDrawer"]','[id*="mini-cart"]','[id*="minicart"]',
-      '[id*="cart-slide"]','[id*="cartSlide"]','[id*="cart-side"]','[id*="cart-panel"]',
-      '[id*="cart-flyout"]','[id*="cartFlyout"]','[id*="shopping-cart-drawer"]',
+      '[id*="cart-slide"]','[id*="cart-side"]','[id*="cart-panel"]','[id*="cart-flyout"]',
+      '[id*="shopping-cart-drawer"]','[id*="carrinho-lateral"]',
       '[class*="cart-drawer"]:not(a):not(button):not(script)',
       '[class*="mini-cart"]:not(a):not(button):not(script)',
+      '[class*="minicart"]:not(a):not(button):not(script)',
       '[class*="cart-slide"]:not(a):not(button):not(script)',
       '[class*="cart-side"]:not(a):not(button):not(script)',
       '[class*="cart-panel"]:not(a):not(button):not(script)',
@@ -933,27 +950,36 @@ function analisarLoja(html,url,extras){
       '[class*="cart-overlay"]:not(a):not(button):not(script)',
       '[data-cart-drawer]','[data-minicart]','[data-cart-side]','[data-cart-panel]'
     ];
-    for(const s of sels){ const el=dom.querySelector(s); if(el&&el.tagName!=='A'&&el.tagName!=='BUTTON') return el; }
+    for(const s of sels){
+      const el=dom.querySelector(s);
+      if(el&&el.tagName!=='A'&&el.tagName!=='BUTTON') return el;
+    }
     return null;
   })();
-  
-  /* Camada 3: aside ou section COM "cart"/"carrinho" no id/class E que tenha conteúdo
-     (filhos suficientes para ser um painel, não só um wrapper vazio) */
+
+  /* Camada 4: aside/section/role=dialog com "cart|carrinho|sacola" no id ou classe
+     E com filhos reais (painel de conteúdo, não wrapper vazio) */
   const _cartAside=(()=>{
-    const candidates=[...dom.querySelectorAll('aside,section,[role="dialog"],[role="complementary"]')];
-    return candidates.find(el=>{
+    const cands=[...dom.querySelectorAll('aside,section,[role="dialog"],[role="complementary"]')];
+    return cands.find(el=>{
       const attrs=(el.id||'')+' '+(el.className||'');
       if(!/cart|carrinho|sacola/i.test(attrs)) return false;
-      // precisa ter conteúdo — pelo menos 2 filhos diretos (é um painel real, não wrapper)
-      if(el.children.length<2) return false;
-      // NÃO pode ser o elemento de nav/menu (descarta falsos positivos de menu mobile)
-      if(/nav|menu|header/i.test(el.tagName+' '+attrs)) return false;
+      if(el.children.length<1) return false;
+      if(/^(NAV|HEADER)$/.test(el.tagName)) return false;
       return true;
     });
   })();
-  
-  /* Resultado: só afirma carrinho lateral quando tem painel real no DOM */
-  const _carrinhoLateral=!!(_cartDataApp||_cartDrawer||_cartAside);
+
+  /* Camada 5: aria-label de carrinho em elemento de painel (não link) */
+  const _cartAria=(()=>{
+    const el=dom.querySelector('[aria-label*="carrinho" i],[aria-label*="cart" i],[aria-label*="sacola" i]');
+    if(!el) return null;
+    if(el.tagName==='A'||el.tagName==='BUTTON') return null;
+    if(el.children.length<1) return null;
+    return el;
+  })();
+
+  const _carrinhoLateral=!!(_cartDataApp||_cartVue||_cartDrawer||_cartAside||_cartAria);
 
   /* MENU MOBILE — elemento real de toggle, não só a classe no CSS */
   const _menuMobile=!!dom.querySelector(
@@ -1611,15 +1637,23 @@ async function recomendarTemas(L,onStep){
     if(!demoUrl||!/commercesuite\.com\.br/i.test(demoUrl)) return {_lida:false};
 
     // helper: detecta carrinho lateral — painel real, não link/ícone do header
+    // Baseado nos padrões reais dos temas Tray coletados de lojas ao vivo
     function temCartLateral(d,h){
-      // data-app="cart" — padrão nativo Tray de mini-cart
+      // C1: data-app="cart" — padrão nativo Tray
       if(d.querySelector('[data-app="cart"],[data-app*="cart.fly"],[data-app*="cart.side"],[data-app*="cart.drawer"]')) return true;
-      // painel/drawer explícito (exclui <a> e <button> que são só acionadores)
+      // C2: padrão Vue/Dropdown da Tray — id="cart" ou classes de componente de painel
+      const byId=d.querySelector('#cart');
+      if(byId&&byId.tagName!=='A'&&byId.tagName!=='BUTTON'&&byId.children.length>=1) return true;
+      const clsSels=['[class*="cart__dropdown"]','[class*="cart__vue"]','[class*="cart-backdrop"]','[class*="cart__container"]','[class*="cart__body"]','[class*="cart__wrapper"]','[class*="cart__content"]','[class*="cart__panel"]','[class*="cart__fly"]'];
+      for(const s of clsSels){ const el=d.querySelector(s); if(el&&el.tagName!=='A'&&el.tagName!=='BUTTON') return true; }
+      // C3: drawers explícitos
       const sels=[
         '[id*="cart-drawer"]','[id*="cartDrawer"]','[id*="mini-cart"]','[id*="minicart"]',
         '[id*="cart-slide"]','[id*="cart-side"]','[id*="cart-panel"]','[id*="cart-flyout"]',
+        '[id*="carrinho-lateral"]',
         '[class*="cart-drawer"]:not(a):not(button):not(script)',
         '[class*="mini-cart"]:not(a):not(button):not(script)',
+        '[class*="minicart"]:not(a):not(button):not(script)',
         '[class*="cart-slide"]:not(a):not(button):not(script)',
         '[class*="cart-side"]:not(a):not(button):not(script)',
         '[class*="cart-panel"]:not(a):not(button):not(script)',
@@ -1628,12 +1662,16 @@ async function recomendarTemas(L,onStep){
         '[data-cart-drawer]','[data-minicart]','[data-cart-side]','[data-cart-panel]'
       ];
       for(const s of sels){ const el=d.querySelector(s); if(el&&el.tagName!=='A'&&el.tagName!=='BUTTON') return true; }
-      // aside/section com "cart" no id/class E com conteúdo real (não só wrapper)
+      // C4: aside/section com cart no id/class e filhos reais
       const aside=[...d.querySelectorAll('aside,section,[role="dialog"]')].find(el=>{
-        const attrs=(el.id||'')+' '+(el.className||'');
-        return /cart|carrinho|sacola/i.test(attrs)&&el.children.length>=2&&!/nav|menu/i.test(attrs);
+        const a=(el.id||'')+' '+(el.className||'');
+        return /cart|carrinho|sacola/i.test(a)&&el.children.length>=1&&!/^(NAV|HEADER)$/.test(el.tagName);
       });
-      return !!aside;
+      if(aside) return true;
+      // C5: aria-label de carrinho em elemento de painel (não link/botão)
+      const aria=d.querySelector('[aria-label*="carrinho" i],[aria-label*="cart" i],[aria-label*="sacola" i]');
+      if(aria&&aria.tagName!=='A'&&aria.tagName!=='BUTTON'&&aria.children.length>=1) return true;
+      return false;
     }
     // helper: detecta busca em qualquer DOM
     function temBusca(d){
