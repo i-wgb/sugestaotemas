@@ -363,7 +363,7 @@
   </div>
 </div>
 
-<p class="ver-stamp">v2.5.5 · Raio-X + Tema Ideal · Loja de Temas Tray</p>
+<p class="ver-stamp">v2.5.6 · Raio-X + Tema Ideal · Loja de Temas Tray</p>
 <p class="foot">O diagnóstico é montado a partir do que está visível no código público da loja no momento da análise. A recomendação de tema cruza o segmento detectado com as lacunas encontradas; os temas e valores vêm do catálogo da Loja de Temas Tray e podem mudar — confira sempre a página e a demonstração vigentes antes de fechar. Os dados de mercado citados são de referências públicas (Baymard Institute, Opinion Box/Octadesk, ABComm) e servem de apoio ao discurso, não como promessa de resultado.</p>
 
 <script>
@@ -1870,9 +1870,38 @@ async function recomendarTemas(L,onStep){
   if(escolhidos.length<3){
     for(const r of poolExtendido){ if(escolhidos.length>=3) break; if(!escolhidos.includes(r)) escolhidos.push(r); }
   }
-  // reordena: melhor upgrade primeiro (maior sc), depois por faixa de preço
-  escolhidos.sort((a,b)=>{ const fa=faixaTema(a.t.preco),fb=faixaTema(b.t.preco);
-    const ordem={entrada:0,intermediario:1,premium:2}; return (ordem[fa]||0)-(ordem[fb]||0); });
+  // Ordena por faixa de preço (entrada→intermediário→premium) para exibição consistente.
+  // Garantia de progressão: intermediário deve ter count >= básico, premium >= intermediário.
+  // Se não houver tema com count maior na faixa superior, mantém o que tem mas não marca upgrade.
+  escolhidos.sort((a,b)=>{ const ordem={entrada:0,intermediario:1,premium:2};
+    return (ordem[faixaTema(a.t.preco)]||0)-(ordem[faixaTema(b.t.preco)]||0); });
+
+  // Garante progressão de recursos: básico <= intermediário <= premium
+  // Se intermediário tiver count menor que básico, troca pela próxima melhor opção da faixa
+  // (sem isso o ranking de preço fica inconsistente visualmente)
+  function garantirProgressao(arr, pool) {
+    if(arr.length<2) return arr;
+    const ordem={entrada:0,intermediario:1,premium:2};
+    arr.sort((a,b)=>(ordem[faixaTema(a.t.preco)]||0)-(ordem[faixaTema(b.t.preco)]||0));
+    // verifica e corrige: cada faixa deve ter count >= faixa anterior
+    for(let i=1;i<arr.length;i++){
+      const prev=arr[i-1], cur=arr[i];
+      const cPrev=prev.count!=null?prev.count:0;
+      const cCur=cur.count!=null?cur.count:0;
+      if(cCur<cPrev){
+        // tenta encontrar alternativa na mesma faixa com count suficiente
+        const fxCur=faixaTema(cur.t.preco);
+        const alt=pool.filter(r=>faixaTema(r.t.preco)===fxCur&&!arr.includes(r)&&(r.count==null||r.count>=cPrev)).sort((a,b)=>b.sc-a.sc)[0];
+        if(alt) arr[i]=alt;
+      }
+    }
+    return arr;
+  }
+  garantirProgressao(escolhidos, poolExtendido);
+
+  // "Mais aderente" = maior score real entre os escolhidos (não necessariamente o mais barato)
+  const scEscolhidos=escolhidos.map(r=>r.sc);
+  const idxTop=scEscolhidos.indexOf(Math.max(...scEscolhidos));
 
   const totalGaps=Math.max(1,gapsReaisTema.length);
   const out=escolhidos.slice(0,3).map((r,i)=>{
@@ -1894,7 +1923,8 @@ async function recomendarTemas(L,onStep){
       demoLida, naoConfirmadoDemo:naoConfirmadoDemo.map(k=>CAP_ROTULO[k]).filter(Boolean),
       linkTema:r.cap.url||tema.url,
       motivo:justificarTema(L,tema,needs,r,countAtual,demoLida,naoConfirmadoDemo),
-      tagsRotulo:(tema.tags||[]).map(tg=>TAG_LIVE_ROTULO[tg]||TAG_ROTULO[tg]).filter(Boolean).slice(0,4), top:i===0};
+      tagsRotulo:(tema.tags||[]).map(tg=>TAG_LIVE_ROTULO[tg]||TAG_ROTULO[tg]).filter(Boolean).slice(0,4),
+      top:i===idxTop}; // "Mais aderente" = maior score real, não necessariamente o mais barato
   });
   out.meta={semUpgrade, countAtual, totalAtual, fonte, temaAtual:L.temaAtual||null, atualPag:atualPag||null, gapsConfigAtual};
   return out;
