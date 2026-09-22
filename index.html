@@ -363,7 +363,7 @@
   </div>
 </div>
 
-<p class="ver-stamp">v2.5.9b · Raio-X + Tema Ideal · Loja de Temas Tray</p>
+<p class="ver-stamp">v2.7.0 · Raio-X + Tema Ideal · Loja de Temas Tray</p>
 <p class="foot">O diagnóstico é montado a partir do que está visível no código público da loja no momento da análise. A recomendação de tema cruza o segmento detectado com as lacunas encontradas; os temas e valores vêm do catálogo da Loja de Temas Tray e podem mudar — confira sempre a página e a demonstração vigentes antes de fechar. Os dados de mercado citados são de referências públicas (Baymard Institute, Opinion Box/Octadesk, ABComm) e servem de apoio ao discurso, não como promessa de resultado.</p>
 
 <script>
@@ -1097,7 +1097,7 @@ function analisarLoja(html,url,extras){
     !!dom.querySelector('[data-payment*="pix"],[data-method*="pix"],[id*="pix"]:not(script)');
 
   /* PARCELAMENTO — verifica padrão "Nx de R$" no texto visível (não em scripts) */
-  const _textoVisivel=dom.body?dom.body.textContent:'';
+  const _textoVisivel=dom.body?dom.body.textContent:''; const src_html=html||'';
   const _parcelReal=/\d{1,2}\s*x\s*(de\s*)?r\$/i.test(_textoVisivel)||/sem juros/i.test(_textoVisivel)||
     !!dom.querySelector('[class*="parcel"],[class*="installment"],[data-installment]');
 
@@ -1166,15 +1166,56 @@ function analisarLoja(html,url,extras){
     urgencia:/últimas unidades|estoque baixo|acaba em|oferta por tempo|restam \d/i.test(_textoVisivel),
     destaques:_destaquesReal
   };
+  /* 1. Urgência/escassez — texto visível de gatilho */
+  const _urgencia=/últimas unidades|estoque baixo|acaba em|oferta por tempo|restam \d|em alta|só restam|quase esgotado|poucas unidades/i.test(_textoVisivel);
+  /* 2. Newsletter/captura de e-mail */
+  const _newsletter=!!dom.querySelector(
+    '[class*="newsletter"],[class*="email-capture"],[class*="subscribe"],[id*="newsletter"],'+
+    'form input[type="email"],[class*="popup-email"],[class*="lead-capture"]'
+  )||/newsletter|cadastre.seu.e-?mail|receba.*novidades|seja o primeiro a saber/i.test(_textoVisivel);
+  /* 3. Programa de fidelidade / clube */
+  const _fidelidade=/clube|programa de (pontos|fidelidade|recompensa)|cashback|pontos na compra|acumule pontos|sou membro|benefício(s)? exclusivo/i.test(_textoVisivel)||
+    !!dom.querySelector('[class*="clube"],[class*="fidelidade"],[class*="loyalty"],[href*="clube"],[href*="fidelidade"]');
+  /* 4. Rastreamento de pedido */
+  const _rastreamento=/rastrear pedido|rastreio|meus pedidos|acompanhar pedido|track.*order|status do pedido/i.test(_textoVisivel)||
+    !!dom.querySelector('a[href*="rastrear"],a[href*="rastreio"],a[href*="meus-pedidos"],[class*="order-track"]');
+  /* 5. Chat ao vivo (além de WhatsApp) */
+  const _chatVivo=/chatwoot|jivochat|tawk\.to|tidio|zendesk.*chat|intercom|freshchat|drift\.com|crisp\.chat|livechat/i.test(src_html||html)||
+    !!dom.querySelector('[class*="jivo"],[class*="tawk"],[class*="tidio"],[class*="chatwoot"],[id*="chat-widget"],[class*="live-chat"]');
+  /* 6. Open Graph completo */
+  const _ogCompleto=!!(dom.querySelector('meta[property="og:title"]')&&dom.querySelector('meta[property="og:image"]')&&dom.querySelector('meta[property="og:description"]'));
+  /* 7. Breadcrumb */
+  const _breadcrumb=!!dom.querySelector('[class*="breadcrumb"],[itemtype*="BreadcrumbList"],[aria-label*="breadcrumb" i],[class*="bread-crumb"],[class*="migalha"]');
+  /* 8. Depoimentos em destaque (além de avaliações de produto) */
+  const _depoimentos=some(L.mkt.prova,/Depoiment/)||
+    !!dom.querySelector('[class*="depoimento"],[class*="testimonial"],[class*="review-home"],[class*="cliente-fala"]');
+  /* 9. Integração com marketplace */
+  const _marketplace=/mercado livre|mercadolivre|shopee|amazon|via varejo|b2w|americanas|magazineluiza|magalu/i.test(_textoVisivel)||
+    /mlb\.|shopee\.com\.br|amazon\.com\.br/i.test(html);
+  /* 10. Variações visíveis na vitrine (cor/tamanho antes de entrar no produto) */
+  const _variacoesVitrine=!!dom.querySelector(
+    '[class*="color-swatch"],[class*="variant-swatch"],[class*="swatch"],[class*="variacao-vitrine"],'+
+    '[class*="product-variants"],[class*="grade-vitrine"]'
+  );
+
   L.trustSig={
     avaliacoes:_avaliacaoReal,
-    depoimentos:some(L.mkt.prova,/Depoiment/),
+    depoimentos:_depoimentos,
     selo:some(L.mkt.prova,/Selo/),
     reclameAqui:some(L.mkt.prova,/Reclame/),
     cnpj:_cnpjReal,
     politicaTroca:_politicaTroca,
     atendimento:L.mkt.atendimento.some(a=>a.ok),
-    whatsapp:!!_waEl
+    whatsapp:!!_waEl,
+    urgencia:_urgencia,
+    newsletter:_newsletter,
+    fidelidade:_fidelidade,
+    rastreamento:_rastreamento,
+    chatVivo:_chatVivo,
+    ogCompleto:_ogCompleto,
+    breadcrumb:_breadcrumb,
+    marketplace:_marketplace,
+    variacoesVitrine:_variacoesVitrine
   };
   /* perfil e segmento */
   const catsTxt=[...dom.querySelectorAll('nav a,header a,[class*="menu"] a,[class*="categor"] a,[class*="breadcrumb"] a')].map(a=>(a.textContent||'').replace(/\s+/g,' ').trim()).filter(t=>t.length>1&&t.length<40).join(' ');
@@ -1294,14 +1335,65 @@ function montarFracos(L, atualPag){
   if(!t.selo&&!t.reclameAqui&&!t.cnpj) push('A loja passa pouca segurança para quem chega de fora','Poucos sinais de confiança na loja.','Um tema com rodapé de confiança, selos e páginas de política prontas reduz o principal medo do comprador brasileiro: cair em golpe.','fraude',['Sem selo de segurança visível','Sem Reclame Aqui','Sem CNPJ no rodapé'],'A loja parece insegura e o medo de golpe trava a compra.');
   if(!t.politicaTroca) push('Política de troca e devolução pouco visível','Não localizamos link claro de troca/devolução no rodapé.','Deixar a política visível no rodapé e no produto — como os temas organizam — dá segurança para fechar, sobretudo em moda e eletrônicos.','troca',['Nenhum link de troca/devolução/reembolso no rodapé'],'Sem política clara, o cliente teme não poder devolver e desiste.');
   if(L.exp.checkoutExterno) push('O cliente sai da loja para pagar','Encontramos sinal de checkout externo ('+L.exp.checkoutExterno+') no código.','Manter o cliente na loja até o fim reduz a desistência; confirme o fluxo de checkout e alinhe o tema à jornada de compra completa.','abandono',['Checkout externo detectado: '+L.exp.checkoutExterno],'Cada redirecionamento para fora perde parte dos compradores.');
+  /* recursos ausentes que impactam conversão diretamente */
+  if(!e.carrinhoLateral){
+    const config=temaTemRecurso('carrinhoLateral');
+    push('Sem carrinho lateral — cada adição interrompe o fluxo de compra','Não encontramos painel de mini-cart na loja. Ao clicar em comprar, o cliente é levado para a página do carrinho e perde o contexto de navegação.',
+      config?'O tema atual já suporta carrinho lateral na ficha — ative o mini-cart nas configurações do tema; não é necessário trocar de tema.':'Um tema com carrinho lateral mantém o cliente na página ao adicionar produtos — reduz o abandono e incentiva múltiplos itens por pedido.',
+      'abandono',['Nenhum painel de mini-cart encontrado no DOM da loja'],'70% dos carrinhos são abandonados antes do checkout; o mini-cart reduz esse atrito (Baymard, 2025).',config);
+  }
+  if(!c.freteGratisRegua&&!c.freteGratis){
+    push('Sem régua de frete grátis visível','Não encontramos sinalização de frete grátis ou contador que mostre quanto falta para o frete grátis.','Criar uma régua de frete grátis por valor de pedido é o gatilho mais simples de aumento de ticket médio — o cliente adiciona mais itens para atingir o limite.','frete',['Sem texto de frete grátis ou régua detectados no HTML'],'Lojas com régua de frete grátis têm ticket médio mais alto; é o gatilho de upsell de menor custo.');
+  }
+  if(!c.relacionados){
+    push('Sem compre junto ou relacionados na página de produto','Não encontramos seção de produtos relacionados ou compre junto.','Um tema com bloco de relacionados nativo coloca mais itens na frente do cliente no momento de maior intenção — sem custo de aquisição adicional.','checkout',['Nenhuma seção de relacionados encontrada no DOM'],'Mais itens por pedido é o crescimento de menor custo em e-commerce.');
+  }
+  if(!c.cupom){
+    push('Sem cupom de desconto detectado na loja','Não encontramos campo de cupom ou código de desconto.','Cupom de boas-vindas é o gatilho mais eficaz para a primeira compra e reativação de clientes parados.','checkout',['Nenhum campo de cupom encontrado no DOM'],'Primeira compra com incentivo tem mais chance de gerar recompra.');
+  }
+  if(!c.destaques){
+    push('Home sem vitrine de destaques ou mais vendidos','Não encontramos seção de produtos em destaque na home.','Um tema com vitrines configuráveis na home orienta o cliente ao entrar — curadoria visual encurta a jornada e reduz a taxa de saída imediata.','checkout',['Nenhuma vitrine de destaque detectada no DOM'],'Clientes que veem curadoria na home navegam mais e compram mais.');
+  }
+  /* 10 novos pontos de melhoria */
+  if(!t.urgencia){
+    push('Sem gatilhos de urgência ou escassez visíveis','Não encontramos sinalização de estoque baixo, timer de oferta ou "últimas unidades" na loja.','Adicionar gatilhos de urgência (estoque baixo, oferta por tempo) é uma das ações de conversão de maior impacto por menor esforço — o cliente decide comprar agora em vez de deixar para depois.','abandono',['Sem texto de urgência/escassez detectado no HTML'],'Gatilhos de urgência aumentam a taxa de conversão em até 25% (Opinion Box, 2025).');
+  }
+  if(!t.newsletter){
+    push('Sem captura de e-mail ou newsletter detectada','Não encontramos formulário de cadastro de e-mail, popup de newsletter ou bloco de captura na loja.','Captura de e-mail é a base própria de remarketing — permite reativar clientes sem depender de anúncio pago, com custo praticamente zero por disparo.','checkout',['Nenhum campo de captura de e-mail encontrado'],'E-mail marketing tem ROI médio de R$38 para cada R$1 investido (Opinion Box, 2025).');
+  }
+  if(!t.fidelidade){
+    push('Sem programa de fidelidade ou clube de vantagens','Não encontramos referência a programa de pontos, cashback ou clube de benefícios.','Um clube de fidelidade ou cashback retém clientes e aumenta a frequência de compra — o custo de retenção é 5x menor que o de aquisição.','checkout',['Sem menção a pontos, cashback ou clube no texto da loja'],'Clientes fidelizados gastam em média 67% mais que novos clientes (Opinion Box, 2025).');
+  }
+  if(!t.rastreamento){
+    push('Rastreamento de pedido pouco visível na loja','Não encontramos link claro de rastreio ou área "Meus Pedidos" na navegação da loja.','Deixar o rastreamento de pedido acessível reduz o volume de SAC e aumenta a confiança pós-compra — o cliente que consegue acompanhar o pedido volta mais.','troca',['Sem link de rastreio ou meus pedidos na navegação principal'],'Visibilidade pós-compra reduz contatos de SAC em até 30%.');
+  }
+  if(!t.chatVivo&&!t.whatsapp){
+    push('Sem canal de atendimento em tempo real','Não encontramos chat ao vivo (JivoChat, Tidio, Chatwoot) nem WhatsApp na loja.','Atendimento em tempo real converte dúvida em venda — especialmente em produtos de ticket alto onde o cliente precisa de confiança antes de comprar.','checkout',['Nenhum widget de chat ou link WhatsApp encontrado'],'Lojas com chat ao vivo têm taxa de conversão até 82% maior (Opinion Box, 2025).');
+  } else if(!t.chatVivo&&t.whatsapp){
+    push('Sem chat ao vivo além do WhatsApp','WhatsApp identificado, mas nenhum chat ao vivo (JivoChat, Tidio, Chatwoot) encontrado.','Chat ao vivo integrado à loja permite atendimento proativo — o atendente pode abordar visitantes em páginas de produto de alta valor antes de eles saírem.','checkout',['Nenhum widget de chat ao vivo detectado'],'Chat proativo aumenta a conversão especialmente em produtos de ticket alto.');
+  }
+  if(!t.ogCompleto){
+    push('Open Graph incompleto — links nas redes aparecem sem imagem','Não encontramos os três metadados de Open Graph (título, imagem e descrição) completos.','Completar o Open Graph faz os links da loja nas redes aparecerem com imagem e texto formatados — fundamental para campanhas e compartilhamentos orgânicos.','checkout',['Meta tags og:title/og:image/og:description ausentes ou incompletas'],'Posts com imagem têm 3x mais engajamento que posts sem imagem nas redes sociais.');
+  }
+  if(!t.breadcrumb&&L.perfil.produtos>=100){
+    push('Sem breadcrumb de navegação identificado','Não encontramos trilha de navegação (breadcrumb) nas páginas da loja.','Breadcrumb ajuda o cliente a entender onde está no catálogo e voltar facilmente — reduz a saída e melhora o SEO de páginas de categoria e produto.','checkout',['Sem elemento de breadcrumb (class*="breadcrumb" ou schema BreadcrumbList) no HTML'],'Breadcrumbs melhoram o SEO orgânico e reduzem a taxa de saída em catálogos grandes.');
+  }
+  if(!t.depoimentos&&!t.avaliacoes){
+    push('Sem depoimentos de clientes na loja','Não encontramos depoimentos em destaque, avaliações ou prova social qualitativa.','Depoimentos na home e avaliações no produto são as duas formas mais eficazes de prova social — juntos respondem pela principal barreira de compra em loja desconhecida.','avaliacoes',['Sem bloco de depoimentos ou avaliações detectado'],'91% dos consumidores já desistiram após ler avaliação negativa; a ausência é igualmente prejudicial (Octadesk/Opinion Box, 2025).');
+  } else if(t.avaliacoes&&!t.depoimentos){
+    push('Sem depoimentos de clientes em destaque na home','Avaliações no produto detectadas, mas sem depoimentos ou cases de clientes na home.','Depoimentos em vídeo ou texto na home constroem confiança de marca — vão além da nota de produto e mostram resultado e satisfação de quem já comprou.','avaliacoes',['Sem bloco de depoimentos na home'],'Depoimentos visuais na home aumentam a confiança de primeira visita em lojas novas.');
+  }
+  if(!t.variacoesVitrine&&['moda','beleza','joias','calcados'].includes(L.perfil.segmento.id)){
+    push('Variações de cor/tamanho não visíveis na vitrine','Não encontramos seletores de variação (cor, tamanho) visíveis nos cards de produto na vitrine.','Mostrar as opções de cor e tamanho diretamente na vitrine reduz cliques até a compra — o cliente já vê se tem a cor que quer sem precisar abrir o produto.','checkout',['Nenhum swatch de cor ou variação encontrado nos cards da vitrine'],'Variações visíveis na vitrine reduzem o caminho até a compra e aumentam o CTR do produto.');
+  }
   const vistos=new Set();
-  return D.filter(d=>{ const k=norm(d.titulo); if(vistos.has(k)) return false; vistos.add(k); return true; }).slice(0,6);
+  return D.filter(d=>{ const k=norm(d.titulo); if(vistos.has(k)) return false; vistos.add(k); return true; }).slice(0,12);
 }
 function montarFaltantes(L){
   const seg=[], base=[]; const vistos=new Set();
   (L.recursos||[]).filter(r=>r.estado==='nao'||r.estado==='checar').forEach(r=>{ const k=norm(r.nome); if(vistos.has(k)) return; vistos.add(k);
     (r.seg?seg:base).push({nome:r.nome, porque:cap(r.porque), seg:r.seg, incerto:r.estado==='checar'}); });
-  return {seg:seg.slice(0,8), base:base.slice(0,8), total:seg.length+base.length};
+  return {seg:seg.slice(0,10), base:base.slice(0,10), total:seg.length+base.length};
 }
 function montarMelhorias(L,fracos){
   const M=[]; const c=L.convSig,t=L.trustSig,e=L.exp,tec=L.tec;
@@ -2448,7 +2540,7 @@ function render(){
     'Como a loja já está na Tray, o caminho de maior impacto e menor risco é o tema: para o segmento de '+L.perfil.segmento.nome.toLowerCase()+' e o porte '+L.perfil.porte+', a indicação principal é o '+t1+', com '+(state.temas[1]?state.temas[1].tema.n+' e '+ (state.temas[2]?state.temas[2].tema.n:'') :'')+' como alternativas. Todos são compra única, sem mensalidade sobre o tema.';
   state.concl=concl;
   h.push('<div class="section"><div class="concl"><div class="tag">Conclusão</div><h3>Recomendação: atualizar o tema da loja</h3><p>'+esc(concl)+'</p></div>'+
-   '<div class="final-actions"><button class="btn btn-primary" id="pdf-btn"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><path d="M14 2v6h6M12 18v-6M9 15l3 3 3-3"/></svg>Gerar PDF para o cliente</button>'+
+   '<div class="final-actions"><button class="btn btn-primary" id="pdf-btn"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><path d="M14 2v6h6M12 18v-6M9 15l3 3 3-3"/></svg>PDF completo</button><button class="btn" id="pdf-diag-btn" style="background:var(--ink-2);color:#fff;display:inline-flex;align-items:center;gap:8px;padding:10px 20px;border-radius:10px;font-weight:600;cursor:pointer;border:none"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><path d="M14 2v6h6"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/></svg>PDF diagnóstico</button>'+
    '<button class="btn btn-ghost" id="copy-summary"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="9" y="9" width="13" height="13" rx="2"/><path d="M5 15V5a2 2 0 0 1 2-2h10"/></svg>Copiar resumo</button></div></div>');
   resultsEl.innerHTML=h.join(''); resultsEl.className='on'; wireResults();
 }
@@ -2487,6 +2579,7 @@ function wireResults(){
   document.querySelectorAll('.arg .copy').forEach(b=>b.addEventListener('click',()=>{ const k=b.getAttribute('data-arg'); const txt=k==='pitch'?state.args.pitch:state.args.blocos[+k].t; copyText(txt,b,'Copiado ✓'); }));
   const cs=document.getElementById('copy-summary'); if(cs) cs.addEventListener('click',()=>copyText(buildSummary(),cs,'Resumo copiado ✓'));
   const pb=document.getElementById('pdf-btn'); if(pb) pb.addEventListener('click',openPdfModal);
+  const pb2=document.getElementById('pdf-diag-btn'); if(pb2) pb2.addEventListener('click',gerarPDFDiagnostico);
 }
 function copyText(t,btn,ok){ navigator.clipboard.writeText(t).then(()=>{const o=btn.innerHTML;btn.innerHTML=ok;setTimeout(()=>btn.innerHTML=o,1600);}).catch(()=>{}); }
 function buildSummary(){
@@ -2651,6 +2744,92 @@ function generatePDF(){
   footer();
   const nomeArq=(L.host||'loja').replace(/[^a-z0-9]/gi,'-').toLowerCase();
   doc.save('raio-x-tema-'+nomeArq+'.pdf');
+}
+
+function gerarPDFDiagnostico(){
+  if(!state||!state.loja){ alert('Rode a análise antes de exportar.'); return; }
+  const L=state.loja;
+  const {jsPDF}=window.jspdf;
+  const doc=new jsPDF({orientation:'portrait',unit:'pt',format:'a4'});
+  const W=doc.internal.pageSize.getWidth(), H=doc.internal.pageSize.getHeight();
+  const M=40; let y=M;
+  const INK=[0,1,42],INK2=[44,62,100],MUT=[100,120,160],TEAL=[0,160,220],TEALD=[0,120,180];
+  const GREEN=[22,163,74],RED=[185,28,28],GOLD=[161,98,7],LINE=[210,228,240];
+  const col=c=>doc.setTextColor(c[0],c[1],c[2]);
+  const setF=(s,w)=>{ doc.setFontSize(s); doc.setFont('helvetica',w||'normal'); };
+  const need=n=>{ if(y+n>H-M){ doc.addPage(); y=M+10; footer(); } };
+  const wrap=(txt,fs,fw,co,lh,x,mw)=>{ if(!txt) return; setF(fs,fw); col(co); const ls=doc.splitTextToSize(String(txt),(mw||W-2*M)); ls.forEach(l=>{ need(lh+4); doc.text(l,x||M,y); y+=lh; }); };
+  const secTitle=(kicker,title)=>{ need(50); setF(8,'bold'); col(TEAL); doc.text(kicker.toUpperCase(),M,y); y+=14; setF(16,'bold'); col(INK); doc.text(title,M,y); y+=6; doc.setDrawColor(TEAL[0],TEAL[1],TEAL[2]); doc.setLineWidth(1.5); doc.line(M,y,W-M,y); y+=16; };
+  const footer=()=>{ setF(7,'normal'); col(MUT); doc.text('Diagnóstico gerado por Raio-X + Tema Ideal · Loja de Temas Tray',M,H-18); doc.text('Pág. '+doc.getCurrentPageInfo().pageNumber,W-M,H-18,{align:'right'}); };
+
+  /* capa */
+  doc.setFillColor(INK[0],INK[1],INK[2]); doc.rect(0,0,W,120,'F');
+  doc.setFillColor(TEAL[0],TEAL[1],TEAL[2]); doc.rect(0,120,W,4,'F');
+  setF(22,'bold'); doc.setTextColor(255,255,255); doc.text('Diagnóstico da Loja',M,52);
+  setF(13,'normal'); doc.setTextColor(TEAL[0],TEAL[1],TEAL[2]); doc.text(L.nomeLoja||L.host||'',M,78);
+  setF(9,'normal'); doc.setTextColor(180,200,220); doc.text('Gerado em '+new Date().toLocaleDateString('pt-BR'),M,100);
+  if(vendedor.nome) doc.text(vendedor.nome,W-M,100,{align:'right'});
+  y=148;
+
+  /* score geral — círculo no canto */
+  const sx=W-M-100,sy=y-10;
+  doc.setFillColor(237,245,251); doc.roundedRect(sx,sy,100,60,8,8,'F');
+  setF(9,'normal'); col(MUT); doc.text('Score geral',sx+50,sy+14,{align:'center'});
+  setF(28,'bold'); col(L.score.total>=70?TEAL:L.score.total>=45?GOLD:RED);
+  doc.text(String(L.score.total),sx+50,sy+40,{align:'center'});
+  setF(8,'normal'); col(MUT); doc.text('/100 · '+L.score.rotulo,sx+50,sy+54,{align:'center'});
+
+  /* perfil da loja */
+  setF(8,'bold'); col(MUT); doc.text('LOJA ANALISADA',M,y); y+=14;
+  doc.setFillColor(248,250,252); doc.roundedRect(M,y-4,W-M-120,56,8,8,'F');
+  const kv=(k,v,x)=>{ setF(8,'normal'); col(MUT); doc.text(k,x,y+12); setF(10,'bold'); col(INK); doc.text(String(v).slice(0,28),x,y+26); };
+  kv('Segmento',L.perfil.segmento.nome,M+12); kv('Porte',cap(L.perfil.porte),M+180);
+  kv('Produtos (aprox.)',L.perfil.produtos||'—',M+280); kv('Ticket',L.perfil.precos.ok?brl(L.perfil.precos.mediana):'—',M+390);
+  y+=70;
+
+  /* notas por eixo */
+  secTitle('Diagnóstico','Notas por frente');
+  L.score.eixos.forEach(e=>{ need(26);
+    setF(9.5,'normal'); col(INK); doc.text(e.nome,M,y);
+    setF(9.5,'bold'); col(e.valor>=70?TEALD:e.valor>=45?GOLD:RED); doc.text(e.valor+'/100',W-M,y,{align:'right'});
+    y+=6; const bw=W-2*M;
+    doc.setFillColor(238,242,246); doc.roundedRect(M,y,bw,6,3,3,'F');
+    const cc=e.valor>=70?TEAL:e.valor>=45?GOLD:RED;
+    doc.setFillColor(cc[0],cc[1],cc[2]); doc.roundedRect(M,y,Math.max(4,bw*e.valor/100),6,3,3,'F');
+    y+=20; }); y+=8;
+
+  /* pontos fortes */
+  if(state.fortes&&state.fortes.length){
+    secTitle('O que está bom','Pontos fortes da loja');
+    state.fortes.forEach(f=>{ need(36);
+      setF(10,'bold'); col(GREEN); doc.text('+',M,y); col(INK); doc.text(f.titulo,M+14,y); y+=13;
+      wrap(f.txt,9,'normal',INK2,12,M+14,W-2*M-14); y+=6; }); y+=8; }
+
+  /* todos os pontos de melhoria */
+  secTitle('O que melhorar','Pontos de melhoria identificados');
+  wrap('Cada item abaixo representa uma oportunidade detectada diretamente no código da loja, com evidência, impacto e como resolver.',9.5,'normal',INK2,13,M,W-2*M); y+=10;
+  (state.fracos||[]).forEach((d,i)=>{ need(80);
+    if(d.isConfig){
+      doc.setFillColor(253,243,220); doc.roundedRect(M,y-2,W-2*M,16,4,4,'F');
+      setF(8,'bold'); col(GOLD); doc.text('AJUSTE DE CONFIGURAÇÃO — o tema atual já tem este recurso',M+8,y+9); y+=20;
+    }
+    setF(10.5,'bold'); col(RED); doc.text((i+1)+'.',M,y); col(INK);
+    doc.text(doc.splitTextToSize(d.titulo,W-2*M-20)[0],M+18,y); y+=14;
+    if(d.evidencias&&d.evidencias.length){ wrap('Evidência: '+d.evidencias.join(' · '),8.5,'normal',MUT,12,M+18,W-2*M-18); }
+    if(d.impacto){ wrap('Impacto: '+d.impacto,9,'bold',RED,12.5,M+18,W-2*M-18); }
+    wrap('Como resolver: '+d.solucao,9.5,'normal',INK2,13,M+18,W-2*M-18);
+    if(d.bench){ wrap('Dado de mercado: '+d.bench,8.5,'italic',TEALD,12,M+18,W-2*M-18); }
+    y+=10; });
+
+  /* rodapé final com contato */
+  need(60);
+  doc.setFillColor(227,247,242); doc.roundedRect(M,y-4,W-2*M,52,8,8,'F');
+  setF(9,'bold'); col(TEALD); doc.text('Fale com quem preparou esta análise',M+16,y+16);
+  setF(11,'bold'); col(INK); doc.text((vendedor.nome||'')+'  ·  '+(vendedor.fone||''),M+16,y+34); y+=60;
+
+  footer();
+  const nomeArq2=(L.host||'loja').replace(/[^a-z0-9]/gi,'-').toLowerCase();
+  doc.save('diagnostico-'+nomeArq2+'.pdf');
 }
 </script>
 </body>
