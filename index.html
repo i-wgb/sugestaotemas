@@ -363,7 +363,7 @@
   </div>
 </div>
 
-<p class="ver-stamp">v2.7.0 · Raio-X + Tema Ideal · Loja de Temas Tray</p>
+<p class="ver-stamp">v2.7.1 · Raio-X + Tema Ideal · Loja de Temas Tray</p>
 <p class="foot">O diagnóstico é montado a partir do que está visível no código público da loja no momento da análise. A recomendação de tema cruza o segmento detectado com as lacunas encontradas; os temas e valores vêm do catálogo da Loja de Temas Tray e podem mudar — confira sempre a página e a demonstração vigentes antes de fechar. Os dados de mercado citados são de referências públicas (Baymard Institute, Opinion Box/Octadesk, ABComm) e servem de apoio ao discurso, não como promessa de resultado.</p>
 
 <script>
@@ -1369,8 +1369,6 @@ function montarFracos(L, atualPag){
   }
   if(!t.chatVivo&&!t.whatsapp){
     push('Sem canal de atendimento em tempo real','Não encontramos chat ao vivo (JivoChat, Tidio, Chatwoot) nem WhatsApp na loja.','Atendimento em tempo real converte dúvida em venda — especialmente em produtos de ticket alto onde o cliente precisa de confiança antes de comprar.','checkout',['Nenhum widget de chat ou link WhatsApp encontrado'],'Lojas com chat ao vivo têm taxa de conversão até 82% maior (Opinion Box, 2025).');
-  } else if(!t.chatVivo&&t.whatsapp){
-    push('Sem chat ao vivo além do WhatsApp','WhatsApp identificado, mas nenhum chat ao vivo (JivoChat, Tidio, Chatwoot) encontrado.','Chat ao vivo integrado à loja permite atendimento proativo — o atendente pode abordar visitantes em páginas de produto de alta valor antes de eles saírem.','checkout',['Nenhum widget de chat ao vivo detectado'],'Chat proativo aumenta a conversão especialmente em produtos de ticket alto.');
   }
   if(!t.ogCompleto){
     push('Open Graph incompleto — links nas redes aparecem sem imagem','Não encontramos os três metadados de Open Graph (título, imagem e descrição) completos.','Completar o Open Graph faz os links da loja nas redes aparecerem com imagem e texto formatados — fundamental para campanhas e compartilhamentos orgânicos.','checkout',['Meta tags og:title/og:image/og:description ausentes ou incompletas'],'Posts com imagem têm 3x mais engajamento que posts sem imagem nas redes sociais.');
@@ -2771,21 +2769,21 @@ function gerarPDFDiagnostico(){
   if(vendedor.nome) doc.text(vendedor.nome,W-M,100,{align:'right'});
   y=148;
 
-  /* score geral — círculo no canto */
-  const sx=W-M-100,sy=y-10;
-  doc.setFillColor(237,245,251); doc.roundedRect(sx,sy,100,60,8,8,'F');
-  setF(9,'normal'); col(MUT); doc.text('Score geral',sx+50,sy+14,{align:'center'});
-  setF(28,'bold'); col(L.score.total>=70?TEAL:L.score.total>=45?GOLD:RED);
-  doc.text(String(L.score.total),sx+50,sy+40,{align:'center'});
-  setF(8,'normal'); col(MUT); doc.text('/100 · '+L.score.rotulo,sx+50,sy+54,{align:'center'});
-
   /* perfil da loja */
   setF(8,'bold'); col(MUT); doc.text('LOJA ANALISADA',M,y); y+=14;
-  doc.setFillColor(248,250,252); doc.roundedRect(M,y-4,W-M-120,56,8,8,'F');
-  const kv=(k,v,x)=>{ setF(8,'normal'); col(MUT); doc.text(k,x,y+12); setF(10,'bold'); col(INK); doc.text(String(v).slice(0,28),x,y+26); };
-  kv('Segmento',L.perfil.segmento.nome,M+12); kv('Porte',cap(L.perfil.porte),M+180);
-  kv('Produtos (aprox.)',L.perfil.produtos||'—',M+280); kv('Ticket',L.perfil.precos.ok?brl(L.perfil.precos.mediana):'—',M+390);
-  y+=70;
+  const perfilY=y;
+  doc.setFillColor(248,250,252); doc.roundedRect(M,perfilY-4,W-2*M,56,8,8,'F');
+  const kv2=(k,v,x)=>{ setF(8,'normal'); col(MUT); doc.text(k,x,perfilY+12); setF(10,'bold'); col(INK); doc.text(String(v).slice(0,24),x,perfilY+26); };
+  kv2('Segmento',L.perfil.segmento.nome,M+12); kv2('Porte',cap(L.perfil.porte),M+160);
+  kv2('Produtos',L.perfil.produtos||'—',M+250); kv2('Ticket',L.perfil.precos.ok?brl(L.perfil.precos.mediana):'—',M+340);
+  /* score geral — canto direito alinhado ao bloco de perfil */
+  const sx=W-M-90,sy=perfilY-4;
+  doc.setFillColor(237,245,251); doc.roundedRect(sx,sy,90,56,8,8,'F');
+  setF(8,'normal'); col(MUT); doc.text('Score geral',sx+45,sy+14,{align:'center'});
+  setF(26,'bold'); col(L.score.total>=70?TEAL:L.score.total>=45?GOLD:RED);
+  doc.text(String(L.score.total),sx+45,sy+38,{align:'center'});
+  setF(7.5,'normal'); col(MUT); doc.text('/100 · '+L.score.rotulo,sx+45,sy+50,{align:'center'});
+  y=perfilY+66;
 
   /* notas por eixo */
   secTitle('Diagnóstico','Notas por frente');
@@ -2809,10 +2807,7 @@ function gerarPDFDiagnostico(){
   secTitle('O que melhorar','Pontos de melhoria identificados');
   wrap('Cada item abaixo representa uma oportunidade detectada diretamente no código da loja, com evidência, impacto e como resolver.',9.5,'normal',INK2,13,M,W-2*M); y+=10;
   (state.fracos||[]).forEach((d,i)=>{ need(80);
-    if(d.isConfig){
-      doc.setFillColor(253,243,220); doc.roundedRect(M,y-2,W-2*M,16,4,4,'F');
-      setF(8,'bold'); col(GOLD); doc.text('AJUSTE DE CONFIGURAÇÃO — o tema atual já tem este recurso',M+8,y+9); y+=20;
-    }
+    if(d.isConfig){ /* badge removido do PDF diagnóstico */ }
     setF(10.5,'bold'); col(RED); doc.text((i+1)+'.',M,y); col(INK);
     doc.text(doc.splitTextToSize(d.titulo,W-2*M-20)[0],M+18,y); y+=14;
     if(d.evidencias&&d.evidencias.length){ wrap('Evidência: '+d.evidencias.join(' · '),8.5,'normal',MUT,12,M+18,W-2*M-18); }
