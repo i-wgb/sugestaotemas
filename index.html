@@ -363,7 +363,7 @@
   </div>
 </div>
 
-<p class="ver-stamp">v2.8.0 · Raio-X + Tema Ideal · Loja de Temas Tray</p>
+<p class="ver-stamp">v2.8.1 · Raio-X + Tema Ideal · Loja de Temas Tray</p>
 <p class="foot">O diagnóstico é montado a partir do que está visível no código público da loja no momento da análise. A recomendação de tema cruza o segmento detectado com as lacunas encontradas; os temas e valores vêm do catálogo da Loja de Temas Tray e podem mudar — confira sempre a página e a demonstração vigentes antes de fechar. Os dados de mercado citados são de referências públicas (Baymard Institute, Opinion Box/Octadesk, ABComm) e servem de apoio ao discurso, não como promessa de resultado.</p>
 
 <script>
@@ -2996,7 +2996,7 @@ function gerarPDFDiagnostico(){
   secao('Por onde começar','Próximos Passos Recomendados',
     'Priorize as ações de maior impacto. Os itens marcados como configuração podem ser ativados sem troca de tema.');
 
-  const renderPassos=(lista,icone,cor,label)=>{
+  const renderPassos=(lista,icone,label,cor)=>{
     if(!lista.length) return;
     need(24);
     setF(8,'bold'); col(cor); doc.text(icone+' '+label.toUpperCase(),M,y); y+=14;
@@ -3012,8 +3012,8 @@ function gerarPDFDiagnostico(){
     y+=6;
   };
 
-  renderPassos(passosTema,'▶','PRIORIDADE — Ações que transformam a experiência de compra',[TEALD[0],TEALD[1],TEALD[2]]);
-  renderPassos(passosConfig,'⚙','CONFIGURAÇÃO — Recursos já disponíveis no tema, precisam ser ativados',[GOLD[0],GOLD[1],GOLD[2]]);
+  renderPassos(passosTema,'▶','PRIORIDADE — Ações que transformam a experiência de compra',TEALD);
+  renderPassos(passosConfig,'⚙','CONFIGURAÇÃO — Recursos já disponíveis no tema, precisam ser ativados',GOLD);
 
   /* ── PÁGINA DE ENCERRAMENTO ───────────────────────────────────── */
   doc.addPage();
