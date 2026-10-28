@@ -363,7 +363,7 @@
   </div>
 </div>
 
-<p class="ver-stamp">v2.7.1 · Raio-X + Tema Ideal · Loja de Temas Tray</p>
+<p class="ver-stamp">v2.8.0 · Raio-X + Tema Ideal · Loja de Temas Tray</p>
 <p class="foot">O diagnóstico é montado a partir do que está visível no código público da loja no momento da análise. A recomendação de tema cruza o segmento detectado com as lacunas encontradas; os temas e valores vêm do catálogo da Loja de Temas Tray e podem mudar — confira sempre a página e a demonstração vigentes antes de fechar. Os dados de mercado citados são de referências públicas (Baymard Institute, Opinion Box/Octadesk, ABComm) e servem de apoio ao discurso, não como promessa de resultado.</p>
 
 <script>
@@ -2750,79 +2750,320 @@ function gerarPDFDiagnostico(){
   const {jsPDF}=window.jspdf;
   const doc=new jsPDF({orientation:'portrait',unit:'pt',format:'a4'});
   const W=doc.internal.pageSize.getWidth(), H=doc.internal.pageSize.getHeight();
-  const M=40; let y=M;
-  const INK=[0,1,42],INK2=[44,62,100],MUT=[100,120,160],TEAL=[0,160,220],TEALD=[0,120,180];
-  const GREEN=[22,163,74],RED=[185,28,28],GOLD=[161,98,7],LINE=[210,228,240];
+  const M=44; let y=M;
+
+  // paleta
+  const INK=[0,1,42],INK2=[44,62,100],MUT=[120,140,170],TEAL=[0,160,220],TEALD=[0,120,180];
+  const GREEN=[22,163,74],RED=[185,28,28],GOLD=[161,98,7],ORANGE=[194,120,10];
+  const BG=[237,245,251],BGCARD=[248,250,252],LINE=[210,228,240];
+
+  // helpers
   const col=c=>doc.setTextColor(c[0],c[1],c[2]);
+  const fill=c=>doc.setFillColor(c[0],c[1],c[2]);
+  const draw=c=>doc.setDrawColor(c[0],c[1],c[2]);
   const setF=(s,w)=>{ doc.setFontSize(s); doc.setFont('helvetica',w||'normal'); };
-  const need=n=>{ if(y+n>H-M){ doc.addPage(); y=M+10; footer(); } };
-  const wrap=(txt,fs,fw,co,lh,x,mw)=>{ if(!txt) return; setF(fs,fw); col(co); const ls=doc.splitTextToSize(String(txt),(mw||W-2*M)); ls.forEach(l=>{ need(lh+4); doc.text(l,x||M,y); y+=lh; }); };
-  const secTitle=(kicker,title)=>{ need(50); setF(8,'bold'); col(TEAL); doc.text(kicker.toUpperCase(),M,y); y+=14; setF(16,'bold'); col(INK); doc.text(title,M,y); y+=6; doc.setDrawColor(TEAL[0],TEAL[1],TEAL[2]); doc.setLineWidth(1.5); doc.line(M,y,W-M,y); y+=16; };
-  const footer=()=>{ setF(7,'normal'); col(MUT); doc.text('Diagnóstico gerado por Raio-X + Tema Ideal · Loja de Temas Tray',M,H-18); doc.text('Pág. '+doc.getCurrentPageInfo().pageNumber,W-M,H-18,{align:'right'}); };
+  const need=n=>{ if(y+n>H-56){ doc.addPage(); y=M+8; footerFn(); } };
+  const wrapT=(txt,fs,fw,co,lh,x,mw)=>{
+    if(!txt) return;
+    setF(fs,fw); col(co);
+    doc.splitTextToSize(String(txt),(mw||W-2*M)).forEach(l=>{ need(lh+4); doc.text(l,x||M,y); y+=lh; });
+  };
+  const hRule=(co)=>{ draw(co||LINE); doc.setLineWidth(0.5); doc.line(M,y,W-M,y); y+=10; };
+  const scoreColor=v=>v>=70?TEAL:v>=45?GOLD:RED;
+  const labelNota=v=>v>=70?'Bom':v>=45?'Em evolução':'Precisa de atenção';
 
-  /* capa */
-  doc.setFillColor(INK[0],INK[1],INK[2]); doc.rect(0,0,W,120,'F');
-  doc.setFillColor(TEAL[0],TEAL[1],TEAL[2]); doc.rect(0,120,W,4,'F');
-  setF(22,'bold'); doc.setTextColor(255,255,255); doc.text('Diagnóstico da Loja',M,52);
-  setF(13,'normal'); doc.setTextColor(TEAL[0],TEAL[1],TEAL[2]); doc.text(L.nomeLoja||L.host||'',M,78);
-  setF(9,'normal'); doc.setTextColor(180,200,220); doc.text('Gerado em '+new Date().toLocaleDateString('pt-BR'),M,100);
-  if(vendedor.nome) doc.text(vendedor.nome,W-M,100,{align:'right'});
-  y=148;
+  // footer em cada página
+  const footerFn=()=>{
+    const pg=doc.getCurrentPageInfo().pageNumber;
+    const tot=doc.getNumberOfPages();
+    setF(7,'normal'); col(MUT);
+    doc.text('Diagnóstico de E-commerce · '+new Date().toLocaleDateString('pt-BR'),M,H-20);
+    if(vendedor.nome) doc.text(vendedor.nome,W/2,H-20,{align:'center'});
+    doc.text('Página '+pg+' de '+tot,W-M,H-20,{align:'right'});
+    draw(LINE); doc.setLineWidth(0.4); doc.line(M,H-30,W-M,H-30);
+  };
 
-  /* perfil da loja */
-  setF(8,'bold'); col(MUT); doc.text('LOJA ANALISADA',M,y); y+=14;
-  const perfilY=y;
-  doc.setFillColor(248,250,252); doc.roundedRect(M,perfilY-4,W-2*M,56,8,8,'F');
-  const kv2=(k,v,x)=>{ setF(8,'normal'); col(MUT); doc.text(k,x,perfilY+12); setF(10,'bold'); col(INK); doc.text(String(v).slice(0,24),x,perfilY+26); };
-  kv2('Segmento',L.perfil.segmento.nome,M+12); kv2('Porte',cap(L.perfil.porte),M+160);
-  kv2('Produtos',L.perfil.produtos||'—',M+250); kv2('Ticket',L.perfil.precos.ok?brl(L.perfil.precos.mediana):'—',M+340);
-  /* score geral — canto direito alinhado ao bloco de perfil */
-  const sx=W-M-90,sy=perfilY-4;
-  doc.setFillColor(237,245,251); doc.roundedRect(sx,sy,90,56,8,8,'F');
-  setF(8,'normal'); col(MUT); doc.text('Score geral',sx+45,sy+14,{align:'center'});
-  setF(26,'bold'); col(L.score.total>=70?TEAL:L.score.total>=45?GOLD:RED);
-  doc.text(String(L.score.total),sx+45,sy+38,{align:'center'});
-  setF(7.5,'normal'); col(MUT); doc.text('/100 · '+L.score.rotulo,sx+45,sy+50,{align:'center'});
-  y=perfilY+66;
+  /* ══════════════════════════════════════════════════════════════════
+     CAPA — página inteira, sem rodapé de página
+  ══════════════════════════════════════════════════════════════════ */
+  // fundo navy full
+  fill(INK); doc.rect(0,0,W,H,'F');
+  // faixa teal no topo
+  fill(TEAL); doc.rect(0,0,W,6,'F');
+  // faixa inferior
+  fill([0,80,140]); doc.rect(0,H-80,W,80,'F');
 
-  /* notas por eixo */
-  secTitle('Diagnóstico','Notas por frente');
-  L.score.eixos.forEach(e=>{ need(26);
-    setF(9.5,'normal'); col(INK); doc.text(e.nome,M,y);
-    setF(9.5,'bold'); col(e.valor>=70?TEALD:e.valor>=45?GOLD:RED); doc.text(e.valor+'/100',W-M,y,{align:'right'});
-    y+=6; const bw=W-2*M;
-    doc.setFillColor(238,242,246); doc.roundedRect(M,y,bw,6,3,3,'F');
-    const cc=e.valor>=70?TEAL:e.valor>=45?GOLD:RED;
-    doc.setFillColor(cc[0],cc[1],cc[2]); doc.roundedRect(M,y,Math.max(4,bw*e.valor/100),6,3,3,'F');
-    y+=20; }); y+=8;
+  // label tipo documento
+  setF(8,'bold'); doc.setTextColor(TEAL[0],TEAL[1],TEAL[2]);
+  doc.text('DIAGNÓSTICO DE EXPERIÊNCIA DE COMPRA',M,60);
 
-  /* pontos fortes */
+  // nome da loja
+  setF(28,'bold'); doc.setTextColor(255,255,255);
+  const nomeLoja=L.nomeLoja||L.host||'Loja';
+  doc.splitTextToSize(nomeLoja,W-2*M).forEach((l,i)=>doc.text(l,M,98+i*34));
+
+  // URL
+  setF(11,'normal'); doc.setTextColor(TEAL[0],TEAL[1],TEAL[2]);
+  doc.text((L.host||'').toLowerCase(),M,148);
+
+  // divider
+  fill(TEAL); doc.rect(M,164,60,3,'F');
+
+  // score grande centralizado
+  const scX=W/2, scY=240;
+  fill([0,20,60]); doc.roundedRect(scX-70,scY-30,140,110,12,12,'F');
+  setF(8,'normal'); doc.setTextColor(TEAL[0],TEAL[1],TEAL[2]);
+  doc.text('SCORE GERAL DE EXPERIÊNCIA',scX,scY-8,{align:'center'});
+  setF(52,'bold');
+  const sc=L.score.total;
+  doc.setTextColor(sc>=70?TEAL[0]:sc>=45?GOLD[0]:RED[0],
+                   sc>=70?TEAL[1]:sc>=45?GOLD[1]:RED[1],
+                   sc>=70?TEAL[2]:sc>=45?GOLD[2]:RED[2]);
+  doc.text(String(sc),scX,scY+50,{align:'center'});
+  setF(10,'normal'); doc.setTextColor(200,220,240);
+  doc.text('/100  ·  '+L.score.rotulo.toUpperCase(),scX,scY+68,{align:'center'});
+
+  // 3 métricas na capa
+  const metY=H-180;
+  [[L.perfil.segmento.nome,'Segmento'],[cap(L.perfil.porte),'Porte da operação'],
+   [L.perfil.produtos?L.perfil.produtos+' produtos':'—','Catálogo']].forEach((m,i)=>{
+    const mx=M+i*(W-2*M)/3;
+    setF(16,'bold'); doc.setTextColor(255,255,255); doc.text(m[0].slice(0,18),mx,metY);
+    setF(8,'normal'); doc.setTextColor(TEAL[0],TEAL[1],TEAL[2]); doc.text(m[1].toUpperCase(),mx,metY+16);
+  });
+
+  // data e consultor
+  setF(8,'normal'); doc.setTextColor(180,200,220);
+  doc.text('Análise realizada em '+new Date().toLocaleDateString('pt-BR'),M,H-30);
+  if(vendedor.nome){ setF(8,'bold'); doc.text(vendedor.nome,W-M,H-30,{align:'right'}); }
+
+  /* ══════════════════════════════════════════════════════════════════
+     PÁG 2+ — conteúdo do diagnóstico
+  ══════════════════════════════════════════════════════════════════ */
+  doc.addPage(); y=M+8; footerFn();
+
+  // helper seção
+  const secao=(kicker,titulo,subtitulo)=>{
+    need(56);
+    setF(7,'bold'); col(TEAL); doc.text(kicker.toUpperCase(),M,y); y+=13;
+    setF(17,'bold'); col(INK); doc.text(titulo,M,y); y+=8;
+    draw(TEAL); doc.setLineWidth(2); doc.line(M,y,M+50,y);
+    draw(LINE); doc.setLineWidth(0.4); doc.line(M+52,y,W-M,y);
+    y+=14;
+    if(subtitulo){ wrapT(subtitulo,9.5,'normal',MUT,13,M,W-2*M); y+=6; }
+  };
+
+  /* ── RESUMO EXECUTIVO ─────────────────────────────────────────── */
+  secao('Visão geral','Resumo Executivo');
+
+  // gera o resumo a partir dos dados reais
+  const nFortes=state.fortes?state.fortes.length:0;
+  const nFracos=state.fracos?state.fracos.length:0;
+  const frentesFrageis=L.score.eixos.filter(e=>e.valor<50).map(e=>e.nome.toLowerCase());
+  const frentesOk=L.score.eixos.filter(e=>e.valor>=70).map(e=>e.nome.toLowerCase());
+  let resumo='';
+  const seg=L.perfil.segmento.nome||'e-commerce';
+  const porte=cap(L.perfil.porte||'pequena');
+  const ticket=L.perfil.precos.ok?brl(L.perfil.precos.mediana):'ticket médio não identificado';
+  resumo+=porte+' operação de '+seg+' com ticket médio de '+ticket+'. ';
+  if(frentesOk.length){ resumo+='A loja demonstra bom desempenho em '+listPt(frentesOk)+'. '; }
+  if(frentesFrageis.length){
+    resumo+='As frentes que mais impactam a conversão hoje são '+listPt(frentesFrageis)+
+      ' — e representam as maiores oportunidades de crescimento sem aumentar investimento em tráfego. ';
+  }
+  resumo+='Foram identificados '+nFortes+' ponto'+(nFortes!==1?'s':'')+' forte'+(nFortes!==1?'s':'')+
+    ' e '+nFracos+' oportunidade'+(nFracos!==1?'s':'')+' de melhoria com evidência direta no código da loja.';
+
+  // card de resumo
+  need(100);
+  fill(BG); doc.roundedRect(M,y-4,W-2*M,90,8,8,'F');
+  draw(TEAL); doc.setLineWidth(3); doc.line(M,y-4,M,y+86);
+  wrapT(resumo,10.5,'normal',INK2,15,M+14,W-2*M-18);
+  y+=12;
+
+  /* ── NOTAS POR FRENTE ─────────────────────────────────────────── */
+  secao('Diagnóstico por frente','Análise da Experiência de Compra',
+    'Cada frente foi avaliada com base na leitura direta do código da loja. As notas refletem o estado atual — não uma estimativa.');
+
+  L.score.eixos.forEach(e=>{
+    need(52);
+    const cor=scoreColor(e.valor);
+    const lbl=labelNota(e.valor);
+    // fundo card
+    fill(BGCARD); doc.roundedRect(M,y-4,W-2*M,42,6,6,'F');
+    draw(cor); doc.setLineWidth(3); doc.line(M,y-4,M,y+38);
+    // nome da frente
+    setF(10.5,'bold'); col(INK); doc.text(e.nome,M+14,y+10);
+    // label status
+    setF(8,'bold'); col(cor); doc.text(lbl,W-M-60,y+10,{align:'right'});
+    // nota
+    setF(14,'bold'); col(cor); doc.text(e.valor+'/100',W-M,y+10,{align:'right'});
+    // barra de progresso
+    const bw=W-2*M-14, bx=M+14, by=y+22;
+    fill([230,236,244]); doc.roundedRect(bx,by,bw,5,2,2,'F');
+    fill(cor); doc.roundedRect(bx,by,Math.max(3,bw*e.valor/100),5,2,2,'F');
+    y+=50;
+  });
+  y+=10;
+
+  /* ── PONTOS FORTES ────────────────────────────────────────────── */
   if(state.fortes&&state.fortes.length){
-    secTitle('O que está bom','Pontos fortes da loja');
-    state.fortes.forEach(f=>{ need(36);
-      setF(10,'bold'); col(GREEN); doc.text('+',M,y); col(INK); doc.text(f.titulo,M+14,y); y+=13;
-      wrap(f.txt,9,'normal',INK2,12,M+14,W-2*M-14); y+=6; }); y+=8; }
+    secao('O que está funcionando bem','Pontos Fortes Identificados',
+      'Recursos e boas práticas já presentes na loja que contribuem positivamente para a experiência de compra.');
+    state.fortes.forEach((f,i)=>{
+      need(52);
+      fill([240,252,244]); doc.roundedRect(M,y-4,W-2*M,44,6,6,'F');
+      draw(GREEN); doc.setLineWidth(3); doc.line(M,y-4,M,y+40);
+      setF(9,'bold'); col(GREEN); doc.text('✓',M+10,y+10);
+      setF(10.5,'bold'); col(INK); doc.text(f.titulo,M+24,y+10);
+      wrapT(f.txt,9,'normal',INK2,12,M+24,W-2*M-28);
+      y+=12;
+    });
+    y+=8;
+  }
 
-  /* todos os pontos de melhoria */
-  secTitle('O que melhorar','Pontos de melhoria identificados');
-  wrap('Cada item abaixo representa uma oportunidade detectada diretamente no código da loja, com evidência, impacto e como resolver.',9.5,'normal',INK2,13,M,W-2*M); y+=10;
-  (state.fracos||[]).forEach((d,i)=>{ need(80);
-    if(d.isConfig){ /* badge removido do PDF diagnóstico */ }
-    setF(10.5,'bold'); col(RED); doc.text((i+1)+'.',M,y); col(INK);
-    doc.text(doc.splitTextToSize(d.titulo,W-2*M-20)[0],M+18,y); y+=14;
-    if(d.evidencias&&d.evidencias.length){ wrap('Evidência: '+d.evidencias.join(' · '),8.5,'normal',MUT,12,M+18,W-2*M-18); }
-    if(d.impacto){ wrap('Impacto: '+d.impacto,9,'bold',RED,12.5,M+18,W-2*M-18); }
-    wrap('Como resolver: '+d.solucao,9.5,'normal',INK2,13,M+18,W-2*M-18);
-    if(d.bench){ wrap('Dado de mercado: '+d.bench,8.5,'italic',TEALD,12,M+18,W-2*M-18); }
-    y+=10; });
+  /* ── OPORTUNIDADES ORDENADAS POR IMPACTO ─────────────────────── */
+  // ordena fracos: isConfig por último, resto por impacto estimado (bench = maior impacto)
+  const fracosSorted=[...(state.fracos||[])].sort((a,b)=>{
+    if(a.isConfig&&!b.isConfig) return 1;
+    if(!a.isConfig&&b.isConfig) return -1;
+    if(a.bench&&!b.bench) return -1;
+    if(!a.bench&&b.bench) return 1;
+    return 0;
+  });
 
-  /* rodapé final com contato */
-  need(60);
-  doc.setFillColor(227,247,242); doc.roundedRect(M,y-4,W-2*M,52,8,8,'F');
-  setF(9,'bold'); col(TEALD); doc.text('Fale com quem preparou esta análise',M+16,y+16);
-  setF(11,'bold'); col(INK); doc.text((vendedor.nome||'')+'  ·  '+(vendedor.fone||''),M+16,y+34); y+=60;
+  secao('Onde há espaço para crescer','Oportunidades de Melhoria',
+    'Ordenadas por potencial de impacto na conversão. Cada ponto foi identificado com evidência no código da loja — não são suposições.');
 
-  footer();
+  fracosSorted.forEach((d,i)=>{
+    // estima altura necessária
+    const linhasT=doc.splitTextToSize(d.titulo,W-2*M-30).length;
+    const linhasS=doc.splitTextToSize(d.solucao||'',W-2*M-30).length;
+    const linhasI=d.impacto?doc.splitTextToSize(d.impacto,W-2*M-30).length:0;
+    const linhasB=d.bench?doc.splitTextToSize(d.bench,W-2*M-30).length:0;
+    const altEst=30+linhasT*14+linhasS*13+linhasI*13+linhasB*12+16;
+    need(altEst);
+
+    // cor do item: config=gold, normal=red
+    const cor=d.isConfig?GOLD:RED;
+    const bgItem=d.isConfig?[255,248,230]:[255,245,245];
+
+    fill(bgItem); doc.roundedRect(M,y-4,W-2*M,altEst,6,6,'F');
+    draw(cor); doc.setLineWidth(3); doc.line(M,y-4,M,y+altEst-4);
+
+    // número + título
+    setF(9,'bold'); col(cor); doc.text(String(i+1)+'.',M+10,y+12);
+    setF(10.5,'bold'); col(INK);
+    doc.splitTextToSize(d.titulo,W-2*M-36).forEach((l,li)=>{
+      doc.text(l,M+26,y+12+li*14);
+    });
+    y+=12+linhasT*14+4;
+
+    // evidência
+    if(d.evidencias&&d.evidencias.length){
+      setF(8,'bold'); col(MUT); doc.text('Evidência:',M+26,y);
+      setF(8,'normal'); col(MUT);
+      const evTxt=d.evidencias.join(' · ');
+      doc.splitTextToSize(evTxt,W-2*M-100).forEach((l,li)=>doc.text(l,M+80,y+li*11));
+      y+=Math.max(11,doc.splitTextToSize(evTxt,W-2*M-100).length*11)+4;
+    }
+
+    // impacto
+    if(d.impacto){
+      setF(8.5,'bold'); col(cor);
+      doc.splitTextToSize('Impacto: '+d.impacto,W-2*M-30).forEach(l=>{ doc.text(l,M+26,y); y+=12; });
+      y+=2;
+    }
+
+    // como resolver
+    setF(9,'bold'); col(TEALD); doc.text('Como resolver:',M+26,y); y+=12;
+    setF(9,'normal'); col(INK2);
+    doc.splitTextToSize(d.solucao||'',W-2*M-40).forEach(l=>{ doc.text(l,M+26,y); y+=13; });
+
+    // dado de mercado
+    if(d.bench){
+      setF(8,'italic'); col(TEALD);
+      doc.splitTextToSize('Referência: '+d.bench,W-2*M-40).forEach(l=>{ doc.text(l,M+26,y); y+=11; });
+    }
+
+    y+=14;
+  });
+
+  /* ── PRÓXIMOS PASSOS ─────────────────────────────────────────── */
+  const passosTema=fracosSorted.filter(d=>!d.isConfig);
+  const passosConfig=fracosSorted.filter(d=>d.isConfig);
+
+  secao('Por onde começar','Próximos Passos Recomendados',
+    'Priorize as ações de maior impacto. Os itens marcados como configuração podem ser ativados sem troca de tema.');
+
+  const renderPassos=(lista,icone,cor,label)=>{
+    if(!lista.length) return;
+    need(24);
+    setF(8,'bold'); col(cor); doc.text(icone+' '+label.toUpperCase(),M,y); y+=14;
+    lista.forEach((d,i)=>{
+      need(30);
+      fill(BGCARD); doc.roundedRect(M,y-4,W-2*M,22,4,4,'F');
+      setF(8.5,'bold'); col(cor); doc.text(String(i+1)+'.',M+8,y+10);
+      setF(8.5,'normal'); col(INK);
+      const tl=doc.splitTextToSize(d.titulo,W-2*M-30)[0];
+      doc.text(tl,M+22,y+10);
+      y+=26;
+    });
+    y+=6;
+  };
+
+  renderPassos(passosTema,'▶','PRIORIDADE — Ações que transformam a experiência de compra',[TEALD[0],TEALD[1],TEALD[2]]);
+  renderPassos(passosConfig,'⚙','CONFIGURAÇÃO — Recursos já disponíveis no tema, precisam ser ativados',[GOLD[0],GOLD[1],GOLD[2]]);
+
+  /* ── PÁGINA DE ENCERRAMENTO ───────────────────────────────────── */
+  doc.addPage();
+  fill(INK); doc.rect(0,0,W,H,'F');
+  fill(TEAL); doc.rect(0,0,W,6,'F');
+
+  // mensagem de fechamento
+  setF(11,'normal'); doc.setTextColor(180,200,220);
+  doc.text('Este relatório foi preparado com base na leitura',M,120);
+  doc.text('direta do código da loja em '+new Date().toLocaleDateString('pt-BR')+'.',M,138);
+
+  setF(17,'bold'); doc.setTextColor(255,255,255);
+  doc.text('Dúvidas ou quer aprofundar',M,190);
+  doc.text('algum ponto desta análise?',M,212);
+
+  fill(TEAL); doc.rect(M,230,60,3,'F');
+
+  setF(11,'normal'); doc.setTextColor(TEAL[0],TEAL[1],TEAL[2]);
+  doc.text('Entre em contato:',M,262);
+  setF(14,'bold'); doc.setTextColor(255,255,255);
+  doc.text(vendedor.nome||'',M,286);
+  setF(12,'normal'); doc.setTextColor(TEAL[0],TEAL[1],TEAL[2]);
+  if(vendedor.fone) doc.text(vendedor.fone,M,308);
+  if(vendedor.email) doc.text(vendedor.email,M,326);
+
+  // score resumido
+  fill([0,20,60]); doc.roundedRect(W-M-130,100,130,120,10,10,'F');
+  setF(8,'normal'); doc.setTextColor(TEAL[0],TEAL[1],TEAL[2]);
+  doc.text('Score de Experiência',W-M-65,120,{align:'center'});
+  setF(40,'bold');
+  const sc2=L.score.total;
+  doc.setTextColor(sc2>=70?TEAL[0]:sc2>=45?GOLD[0]:RED[0],
+                   sc2>=70?TEAL[1]:sc2>=45?GOLD[1]:RED[1],
+                   sc2>=70?TEAL[2]:sc2>=45?GOLD[2]:RED[2]);
+  doc.text(String(sc2),W-M-65,162,{align:'center'});
+  setF(9,'normal'); doc.setTextColor(180,200,220);
+  doc.text(L.score.rotulo,W-M-65,180,{align:'center'});
+  doc.text(nomeLoja.slice(0,20),W-M-65,200,{align:'center'});
+
+  // registrar número de páginas correto no rodapé de todas as páginas anteriores
+  const totalPgs=doc.getNumberOfPages();
+  for(let p=2;p<totalPgs;p++){
+    doc.setPage(p);
+    setF(7,'normal'); col(MUT);
+    draw(LINE); doc.setLineWidth(0.4); doc.line(M,H-30,W-M,H-30);
+    doc.text('Diagnóstico de E-commerce · '+new Date().toLocaleDateString('pt-BR'),M,H-20);
+    if(vendedor.nome) doc.text(vendedor.nome,W/2,H-20,{align:'center'});
+    doc.text('Página '+p+' de '+totalPgs,W-M,H-20,{align:'right'});
+  }
+
   const nomeArq2=(L.host||'loja').replace(/[^a-z0-9]/gi,'-').toLowerCase();
   doc.save('diagnostico-'+nomeArq2+'.pdf');
 }
