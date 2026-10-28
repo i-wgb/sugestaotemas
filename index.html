@@ -363,7 +363,7 @@
   </div>
 </div>
 
-<p class="ver-stamp">v2.8.2 · Raio-X + Tema Ideal · Loja de Temas Tray</p>
+<p class="ver-stamp">v2.9.0 · Raio-X + Tema Ideal · Loja de Temas Tray</p>
 <p class="foot">O diagnóstico é montado a partir do que está visível no código público da loja no momento da análise. A recomendação de tema cruza o segmento detectado com as lacunas encontradas; os temas e valores vêm do catálogo da Loja de Temas Tray e podem mudar — confira sempre a página e a demonstração vigentes antes de fechar. Os dados de mercado citados são de referências públicas (Baymard Institute, Opinion Box/Octadesk, ABComm) e servem de apoio ao discurso, não como promessa de resultado.</p>
 
 <script>
@@ -2321,6 +2321,94 @@ function montarUXTema(cap,demo,demoLida){
   return {ui,ux,mob,uiNota:uiN,uxNota:uxN,mobNota:mobN,notaGeral:Math.round((uiN+uxN+mobN)/3)};
 }
 
+
+/* analisa SEO de uma página de produto individual */
+function analisarSeoProduto(html, url){
+  const dom = new DOMParser().parseFromString(html, 'text/html');
+  const meta = n => (dom.querySelector('meta[name="'+n+'"],meta[property="'+n+'"]')||{}).getAttribute('content')||'';
+  const T = dom.body ? dom.body.textContent : '';
+
+  // título da página
+  const titulo = (meta('og:title') || dom.title || '').replace(/\s*[\|–-].*$/, '').trim();
+  const tituloLen = titulo.length;
+
+  // meta description
+  const descricao = meta('description') || meta('og:description') || '';
+  const descLen = descricao.length;
+
+  // H1
+  const h1Els = [...dom.querySelectorAll('h1')];
+  const h1Textos = h1Els.map(e => e.textContent.trim()).filter(Boolean);
+  const h1Count = h1Els.length;
+
+  // imagens sem alt
+  const imgs = [...dom.querySelectorAll('img')];
+  const semAlt = imgs.filter(i => !i.getAttribute('alt') || i.getAttribute('alt').trim() === '');
+  const totalImgs = imgs.length;
+
+  // canonical
+  const canonical = !!(dom.querySelector('link[rel="canonical"]'));
+
+  // schema.org Product
+  const schemas = [...dom.querySelectorAll('script[type="application/ld+json"]')]
+    .map(s => { try { return JSON.parse(s.textContent); } catch(e){ return {}; } });
+  const temSchemaProduct = schemas.some(s => (s['@type'] === 'Product') || (Array.isArray(s['@type']) && s['@type'].includes('Product')));
+  const temBreadcrumb = schemas.some(s => s['@type'] === 'BreadcrumbList') || !!dom.querySelector('[class*="breadcrumb"],[itemtype*="BreadcrumbList"]');
+
+  // Open Graph completo para produto
+  const ogOk = !!(meta('og:title') && meta('og:image') && meta('og:description'));
+
+  // URL amigável (sem parâmetros feios)
+  const urlAmigavel = url ? !/\?(id|produto_id|p)=\d/i.test(url) : true;
+
+  // nome do produto (para exibir no relatório)
+  const nomeProduto = h1Textos[0] || titulo || url || 'Produto';
+
+  // problemas encontrados
+  const problemas = [];
+  const ok = [];
+
+  // título
+  if(!titulo)          problemas.push({item:'Título da página', detalhe:'Não encontrado — o Google usa o título como principal elemento de indexação.'});
+  else if(tituloLen < 30) problemas.push({item:'Título curto ('+tituloLen+' caracteres)', detalhe:'"'+titulo.slice(0,60)+'" — ideal entre 50 e 60 caracteres para máxima visibilidade no Google.'});
+  else if(tituloLen > 65) problemas.push({item:'Título longo ('+tituloLen+' caracteres)', detalhe:'"'+titulo.slice(0,60)+'…" — acima de 65 caracteres é cortado no Google; considere encurtar.'});
+  else ok.push('Título adequado ('+tituloLen+' caracteres)');
+
+  // meta description
+  if(!descricao)       problemas.push({item:'Meta description ausente', detalhe:'Sem meta description, o Google escolhe um trecho aleatório — perda de controle do snippet de busca.'});
+  else if(descLen < 70) problemas.push({item:'Meta description curta ('+descLen+' caracteres)', detalhe:'"'+descricao.slice(0,80)+'…" — ideal entre 120 e 160 caracteres para cobrir palavras-chave e CTA.'});
+  else if(descLen > 165) problemas.push({item:'Meta description longa ('+descLen+' caracteres)', detalhe:'Acima de 160 caracteres é cortado no snippet — revise para o essencial.'});
+  else ok.push('Meta description adequada ('+descLen+' caracteres)');
+
+  // H1
+  if(h1Count === 0)    problemas.push({item:'H1 ausente', detalhe:'Sem H1 o Google não sabe qual é o título principal do produto — impacta diretamente o ranqueamento.'});
+  else if(h1Count > 1) problemas.push({item:h1Count+' H1s na página', detalhe:'Mais de um H1 dilui o sinal de relevância — mantenha apenas um H1 com o nome do produto.'});
+  else ok.push('H1 único presente: "'+h1Textos[0].slice(0,50)+'"');
+
+  // imagens sem alt
+  if(semAlt.length > 0 && totalImgs > 0){
+    problemas.push({item:semAlt.length+' de '+totalImgs+' imagens sem atributo alt', detalhe:'Alt ausente impede indexação das imagens no Google Imagens e prejudica acessibilidade — adicione alt descritivo com nome do produto.'});
+  } else if(totalImgs > 0) ok.push('Todas as '+totalImgs+' imagens têm atributo alt');
+
+  // canonical
+  if(!canonical) problemas.push({item:'Tag canonical ausente', detalhe:'Sem canonical, variações de URL (parâmetros de filtro, paginação) podem causar conteúdo duplicado e diluir autoridade.'});
+  else ok.push('Tag canonical presente');
+
+  // schema Product
+  if(!temSchemaProduct) problemas.push({item:'Schema.org Product não encontrado', detalhe:'Sem dados estruturados de produto (nome, preço, disponibilidade, avaliações), o Google não exibe rich results (estrelas, preço) no resultado de busca.'});
+  else ok.push('Schema.org Product presente — habilita rich results no Google');
+
+  // breadcrumb
+  if(!temBreadcrumb) problemas.push({item:'Breadcrumb não detectado', detalhe:'Breadcrumb ajuda o Google a entender a hierarquia da loja e aparece no resultado de busca como trilha de navegação.'});
+  else ok.push('Breadcrumb presente');
+
+  // Open Graph
+  if(!ogOk) problemas.push({item:'Open Graph incompleto', detalhe:'Compartilhamentos deste produto nas redes aparecem sem imagem e descrição formatadas — perda de cliques em campanhas e conteúdo orgânico.'});
+  else ok.push('Open Graph completo para produto');
+
+  return { nomeProduto, url: url||'', titulo, tituloLen, descLen, h1Count, h1Textos, totalImgs, semAlt: semAlt.length, canonical, temSchemaProduct, temBreadcrumb, ogOk, problemas, ok };
+}
+
 /* ---------- 8. fluxo e render ---------- */
 let state={loja:null,fortes:[],fracos:[],faltantes:[],melhorias:[],temas:[],args:null,guia:null,concl:''};
 let vendedor={nome:'',fone:''};
@@ -2355,7 +2443,11 @@ async function run(){
       if(urls.length){ lines[1]={s:'load',t:'Lendo '+urls.length+' página(s) de produto + categoria…'}; setStatus(lines);
         const htmls=await Promise.all(urls.map(u=>fetchText(u,13000).catch(()=>'')));
         const validos=htmls.filter(h=>h&&h.length>300);
-        if(validos.length){ extras.produtoHtml=validos.join('\n<!--BREAK-->\n'); extras.produtosLidos=validos.length; }
+        if(validos.length){
+          extras.produtoHtml=validos.join('\n<!--BREAK-->\n'); extras.produtosLidos=validos.length;
+          // analisa SEO de cada produto individualmente (até 3)
+          extras.seoProdutos=validos.map((h,i)=>analisarSeoProduto(h,urls[i]||''));
+        }
       }
       // lê também uma página de categoria para detectar filtros inteligentes
       try{
@@ -2390,7 +2482,8 @@ async function run(){
     const melhorias=montarMelhorias(loja,fracos);
     const args=montarArgumentos(loja,temas,fracos), guia=montarGuia(loja,temas,fracos);
     const uxDiag=montarUXDiag(loja);
-    state={loja,fortes,fracos,faltantes,melhorias,temas,args,guia,uxDiag,concl:''};
+    const seoProdutos=(loja.extras&&loja.extras.seoProdutos)||[];
+    state={loja,fortes,fracos,faltantes,melhorias,temas,args,guia,uxDiag,seoProdutos,concl:''};
     const nVer=temas.filter(t=>t.verificado).length;
     lines[3]={s:'ok',t:'Temas recomendados ('+nVer+'/'+temas.length+' confirmados na demo): '+temas.map(t=>t.tema.n).join(' · ')}; setStatus(lines);
     setTimeout(()=>{ statusEl.className='status'; statusEl.innerHTML=''; },700);
@@ -2466,6 +2559,53 @@ function render(){
    '<div class="card"><div class="ck">Segmento</div><h4>'+esc(L.perfil.segmento.nome)+'</h4><div class="kv" style="margin-top:10px"><div class="line"><span class="k">Confiança</span><span class="v">'+esc(L.perfil.segConf)+'</span></div>'+(L.perfil.segEv?'<div class="line"><span class="k">Sinais</span><span class="v">'+esc(L.perfil.segEv)+'</span></div>':'')+'<div class="line"><span class="k">Perfil típico</span><span class="v">'+esc(L.perfil.segmento.perfil)+'</span></div></div></div>'+
    '<div class="card"><div class="ck">Porte e catálogo</div><h4>'+cap(L.perfil.porte)+'</h4><div class="kv" style="margin-top:10px"><div class="line"><span class="k">Produtos'+(L.seo.produtosFonte==='sitemap'?' (sitemap)':' (home)')+'</span><span class="v">'+(L.perfil.produtos||'—')+'</span></div><div class="line"><span class="k">Categorias</span><span class="v">'+(L.seo.categoriasEstimadas||'—')+'</span></div><div class="line"><span class="k">Ticket aparente</span><span class="v">'+(pr.ok?brl(pr.mediana)+' ('+L.perfil.ticket+')':L.perfil.ticket)+'</span></div></div></div>'+
    '<div class="card"><div class="ck">Meios de pagamento na vitrine</div>'+chipsHtml(L.exp.pagamentos)+'<div class="ck" style="margin-top:12px">Frete e entrega</div>'+chipsHtml(L.exp.frete)+'</div></div></div>');
+
+  /* SEO de produto — nova seção */
+  if(state.seoProdutos&&state.seoProdutos.length){
+    const sp=state.seoProdutos;
+    const totalProbs=sp.reduce((a,p)=>a+p.problemas.length,0);
+    const seoCss=`<style>
+      .seo-prod-grid{display:grid;gap:12px}
+      @media(min-width:760px){.seo-prod-grid{grid-template-columns:repeat(${Math.min(sp.length,3)},1fr)}}
+      .seo-card{background:var(--surface);border:1px solid var(--line);border-radius:12px;overflow:hidden}
+      .seo-card-head{padding:12px 14px;background:var(--surface-2);border-bottom:1px solid var(--line-2);display:flex;align-items:center;justify-content:space-between;gap:8px}
+      .seo-card-head h4{margin:0;font-size:13px;line-height:1.3;color:var(--ink)}
+      .seo-badge{font-size:11px;font-weight:700;padding:2px 8px;border-radius:99px;white-space:nowrap;flex:none}
+      .seo-badge.ok{background:#e6f6ee;color:var(--green)}.seo-badge.warn{background:#fdf3dc;color:var(--amber)}.seo-badge.err{background:var(--red-soft);color:var(--red)}
+      .seo-body{padding:10px 14px;display:flex;flex-direction:column;gap:6px}
+      .seo-item{font-size:12px;line-height:1.4;display:flex;gap:6px}
+      .seo-item.prob{color:#9A423C}.seo-item.good{color:var(--green)}
+      .seo-item .si{flex:none;font-size:11px;margin-top:1px}
+      .seo-rec{background:var(--surface-2);border:1px solid var(--line);border-radius:10px;padding:12px 16px;margin-top:12px}
+      .seo-rec h4{margin:0 0 6px;font-size:13px;color:var(--ink)}
+      .seo-rec p{margin:0;font-size:12px;color:var(--ink-2);line-height:1.5}
+    </style>`;
+    const seHtml=sp.map(p=>{
+      const nb=p.problemas.length;
+      const badgeCls=nb===0?'ok':nb<=2?'warn':'err';
+      const badgeTxt=nb===0?'Sem problemas':nb+' problema'+(nb!==1?'s':'');
+      const urlShort=(p.url||'').replace(/^https?:\/\//,'').split('/').slice(0,3).join('/');
+      return '<div class="seo-card">'+
+        '<div class="seo-card-head"><div><h4>'+esc(p.nomeProduto.slice(0,60))+'</h4>'+
+        (urlShort?'<div style="font-size:10px;color:var(--muted);margin-top:2px">'+esc(urlShort)+'</div>':'')+'</div>'+
+        '<span class="seo-badge '+badgeCls+'">'+esc(badgeTxt)+'</span></div>'+
+        '<div class="seo-body">'+
+        p.problemas.map(pb=>'<div class="seo-item prob"><span class="si">!</span><span><b>'+esc(pb.item)+'</b> — '+esc(pb.detalhe)+'</span></div>').join('')+
+        p.ok.map(o=>'<div class="seo-item good"><span class="si">✓</span><span>'+esc(o)+'</span></div>').join('')+
+        '</div></div>';
+    }).join('');
+    // padrão recorrente
+    const freq2={};
+    sp.flatMap(p=>p.problemas.map(pb=>pb.item.split('(')[0].trim())).forEach(it=>{ freq2[it]=(freq2[it]||0)+1; });
+    const rec2=Object.entries(freq2).filter(([,v])=>v>=2).map(([k])=>k);
+    const recHtml=rec2.length?'<div class="seo-rec"><h4>Padrão identificado em mais de um produto</h4><p>'+
+      esc(rec2.join(', '))+' — esses problemas aparecem em múltiplos produtos. Resolver na configuração do tema corrige todos de uma vez.</p></div>':'';
+    h.push(seoCss+'<div class="section"><div class="sec-title"><span class="kicker">SEO · Produtos</span>'+
+      '<h2>SEO de Produto — '+sp.length+' página'+(sp.length>1?'s':'')+' analisada'+(sp.length>1?'s':'')+'</h2></div>'+
+      '<p class="sec-sub">Análise individual de cada página de produto lida: título, meta description, H1, imagens, canonical, schema.org e Open Graph. '+
+      (totalProbs===0?'Todos os produtos estão sem problemas de SEO.':'<b>'+totalProbs+' problema'+(totalProbs>1?'s':'')+' encontrado'+(totalProbs>1?'s':'')+' no total.</b>')+'</p>'+
+      '<div class="seo-prod-grid">'+seHtml+'</div>'+recHtml+'</div>');
+  }
 
   /* diagnóstico UI/UX/Mobile — nova seção */
   function uxNotaCor(n){ return n>=70?'hi':n>=45?'mid':'lo'; }
@@ -3000,6 +3140,71 @@ function gerarPDFDiagnostico(){
 
     y+=altCard+10;
   });
+
+  /* ── SEO DOS PRODUTOS ────────────────────────────────────────── */
+  const seoProdutos=state.seoProdutos||[];
+  if(seoProdutos.length){
+    secao('SEO dos produtos','Análise de SEO em '+seoProdutos.length+' Produto'+(seoProdutos.length>1?'s':''),
+      'Cada produto analisado com base na página real da loja. O SEO de produto impacta diretamente o ranqueamento orgânico e a taxa de cliques no Google.');
+
+    seoProdutos.forEach((p,pi)=>{
+      need(40);
+      // cabeçalho do produto
+      fill([237,245,251]); doc.roundedRect(M,y,W-2*M,28,6,6,'F');
+      setF(8,'bold'); col(TEAL); doc.text('PRODUTO '+(pi+1),M+10,y+10);
+      setF(10,'bold'); col(INK);
+      doc.text(doc.splitTextToSize(p.nomeProduto,W-2*M-100)[0],M+75,y+10);
+      // badge ok/nok
+      const totalProb=p.problemas.length, totalOk=p.ok.length;
+      const badgeCol=totalProb===0?GREEN:totalProb<=2?GOLD:RED;
+      setF(8,'bold'); col(badgeCol);
+      doc.text(totalProb+' problema'+(totalProb!==1?'s':''),W-M,y+10,{align:'right'});
+      y+=36;
+
+      // problemas
+      if(p.problemas.length){
+        p.problemas.forEach(prob=>{
+          const lI=doc.splitTextToSize(prob.item,W-2*M-36);
+          const lD=doc.splitTextToSize(prob.detalhe,W-2*M-36);
+          const ch=10+lI.length*12+lD.length*11+8;
+          need(ch+6);
+          fill([255,245,245]); doc.roundedRect(M,y,W-2*M,ch,4,4,'F');
+          draw(RED); doc.setLineWidth(2); doc.line(M,y,M,y+ch);
+          setF(9,'bold'); col(RED);
+          let iy=y+12;
+          lI.forEach(l=>{ doc.text(l,M+12,iy); iy+=12; });
+          setF(8.5,'normal'); col(INK2);
+          lD.forEach(l=>{ doc.text(l,M+12,iy); iy+=11; });
+          y+=ch+6;
+        });
+      }
+
+      // pontos ok (resumido)
+      if(p.ok.length){
+        need(20);
+        setF(8,'bold'); col(GREEN); doc.text('✓ '+p.ok.join('  ·  ').slice(0,120),M+10,y+12);
+        y+=22;
+      }
+      y+=10;
+    });
+
+    // recomendação consolidada de SEO
+    const todosProblemas=seoProdutos.flatMap(p=>p.problemas.map(pb=>pb.item));
+    const freq={};
+    todosProblemas.forEach(it=>{ const k=it.split(' ')[0]; freq[k]=(freq[k]||0)+1; });
+    const recorrentes=Object.entries(freq).filter(([,v])=>v>=2).map(([k])=>k);
+    if(recorrentes.length){
+      need(60);
+      fill([237,245,251]); doc.roundedRect(M,y,W-2*M,52,6,6,'F');
+      draw(TEALD); doc.setLineWidth(2); doc.line(M,y,M,y+52);
+      setF(9,'bold'); col(TEALD); doc.text('Padrão identificado nos produtos',M+12,y+14);
+      setF(9,'normal'); col(INK2);
+      const recTxt='Os seguintes problemas aparecem em mais de um produto analisado: '+recorrentes.join(', ')+'. Resolver na configuração do tema beneficia todos os produtos da loja de uma vez.';
+      doc.splitTextToSize(recTxt,W-2*M-24).forEach((l,i)=>{ doc.text(l,M+12,y+28+i*12); });
+      y+=60;
+    }
+    y+=8;
+  }
 
   /* ── PRÓXIMOS PASSOS ─────────────────────────────────────────── */
   const passosTema=fracosSorted.filter(d=>!d.isConfig);
