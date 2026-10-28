@@ -363,7 +363,7 @@
   </div>
 </div>
 
-<p class="ver-stamp">v2.8.1 · Raio-X + Tema Ideal · Loja de Temas Tray</p>
+<p class="ver-stamp">v2.8.2 · Raio-X + Tema Ideal · Loja de Temas Tray</p>
 <p class="foot">O diagnóstico é montado a partir do que está visível no código público da loja no momento da análise. A recomendação de tema cruza o segmento detectado com as lacunas encontradas; os temas e valores vêm do catálogo da Loja de Temas Tray e podem mudar — confira sempre a página e a demonstração vigentes antes de fechar. Os dados de mercado citados são de referências públicas (Baymard Institute, Opinion Box/Octadesk, ABComm) e servem de apoio ao discurso, não como promessa de resultado.</p>
 
 <script>
@@ -2911,15 +2911,25 @@ function gerarPDFDiagnostico(){
     secao('O que está funcionando bem','Pontos Fortes Identificados',
       'Recursos e boas práticas já presentes na loja que contribuem positivamente para a experiência de compra.');
     state.fortes.forEach((f,i)=>{
-      need(52);
-      fill([240,252,244]); doc.roundedRect(M,y-4,W-2*M,44,6,6,'F');
-      draw(GREEN); doc.setLineWidth(3); doc.line(M,y-4,M,y+40);
-      setF(9,'bold'); col(GREEN); doc.text('✓',M+10,y+10);
-      setF(10.5,'bold'); col(INK); doc.text(f.titulo,M+24,y+10);
-      wrapT(f.txt,9,'normal',INK2,12,M+24,W-2*M-28);
-      y+=12;
+      // calcula altura real do card antes de desenhar
+      const tituloLinhas=doc.splitTextToSize(f.titulo||'',W-2*M-36).length;
+      const descLinhas=doc.splitTextToSize(f.txt||'',W-2*M-36).length;
+      const cardH=10+(tituloLinhas*13)+(descLinhas*12)+14;
+      need(cardH+8);
+      fill([240,252,244]); doc.roundedRect(M,y,W-2*M,cardH,6,6,'F');
+      draw(GREEN); doc.setLineWidth(3); doc.line(M,y,M,y+cardH);
+      // ícone
+      setF(11,'bold'); col(GREEN); doc.text('✓',M+10,y+16);
+      // título
+      setF(10.5,'bold'); col(INK);
+      let ty=y+16;
+      doc.splitTextToSize(f.titulo||'',W-2*M-36).forEach(l=>{ doc.text(l,M+26,ty); ty+=13; });
+      // descrição
+      setF(9,'normal'); col(INK2);
+      doc.splitTextToSize(f.txt||'',W-2*M-36).forEach(l=>{ doc.text(l,M+26,ty); ty+=12; });
+      y+=cardH+8;
     });
-    y+=8;
+    y+=4;
   }
 
   /* ── OPORTUNIDADES ORDENADAS POR IMPACTO ─────────────────────── */
@@ -2936,57 +2946,59 @@ function gerarPDFDiagnostico(){
     'Ordenadas por potencial de impacto na conversão. Cada ponto foi identificado com evidência no código da loja — não são suposições.');
 
   fracosSorted.forEach((d,i)=>{
-    // estima altura necessária
-    const linhasT=doc.splitTextToSize(d.titulo,W-2*M-30).length;
-    const linhasS=doc.splitTextToSize(d.solucao||'',W-2*M-30).length;
-    const linhasI=d.impacto?doc.splitTextToSize(d.impacto,W-2*M-30).length:0;
-    const linhasB=d.bench?doc.splitTextToSize(d.bench,W-2*M-30).length:0;
-    const altEst=30+linhasT*14+linhasS*13+linhasI*13+linhasB*12+16;
-    need(altEst);
-
-    // cor do item: config=gold, normal=red
     const cor=d.isConfig?GOLD:RED;
     const bgItem=d.isConfig?[255,248,230]:[255,245,245];
+    const iX=M+10, tX=M+26, cW=W-2*M-36;
 
-    fill(bgItem); doc.roundedRect(M,y-4,W-2*M,altEst,6,6,'F');
-    draw(cor); doc.setLineWidth(3); doc.line(M,y-4,M,y+altEst-4);
+    // pré-calcula todas as linhas para saber a altura exata do card
+    const lT=doc.splitTextToSize(d.titulo||'',cW);
+    const lEv=(d.evidencias&&d.evidencias.length)?doc.splitTextToSize(d.evidencias.join(' · '),cW):[];
+    const lI=d.impacto?doc.splitTextToSize('Impacto: '+d.impacto,cW):[];
+    const lR=doc.splitTextToSize('Como resolver: '+(d.solucao||''),cW);
+    const lB=d.bench?doc.splitTextToSize('Referência: '+d.bench,cW):[];
+    const altCard=16+(lT.length*14)+(lEv.length?lEv.length*11+8:0)+(lI.length?lI.length*13+4:0)+lR.length*13+(lB.length?lB.length*11+4:0)+16;
+
+    need(altCard+10);
+
+    fill(bgItem); doc.roundedRect(M,y,W-2*M,altCard,6,6,'F');
+    draw(cor); doc.setLineWidth(3); doc.line(M,y,M,y+altCard);
+
+    let cy=y+16;
 
     // número + título
-    setF(9,'bold'); col(cor); doc.text(String(i+1)+'.',M+10,y+12);
+    setF(9,'bold'); col(cor); doc.text(String(i+1)+'.',iX,cy);
     setF(10.5,'bold'); col(INK);
-    doc.splitTextToSize(d.titulo,W-2*M-36).forEach((l,li)=>{
-      doc.text(l,M+26,y+12+li*14);
-    });
-    y+=12+linhasT*14+4;
+    lT.forEach(l=>{ doc.text(l,tX,cy); cy+=14; });
+    cy+=4;
 
     // evidência
-    if(d.evidencias&&d.evidencias.length){
-      setF(8,'bold'); col(MUT); doc.text('Evidência:',M+26,y);
+    if(lEv.length){
+      setF(8,'bold'); col(MUT); doc.text('Evidência:',tX,cy); cy+=12;
       setF(8,'normal'); col(MUT);
-      const evTxt=d.evidencias.join(' · ');
-      doc.splitTextToSize(evTxt,W-2*M-100).forEach((l,li)=>doc.text(l,M+80,y+li*11));
-      y+=Math.max(11,doc.splitTextToSize(evTxt,W-2*M-100).length*11)+4;
+      lEv.forEach(l=>{ doc.text(l,tX,cy); cy+=11; });
+      cy+=4;
     }
 
     // impacto
-    if(d.impacto){
+    if(lI.length){
       setF(8.5,'bold'); col(cor);
-      doc.splitTextToSize('Impacto: '+d.impacto,W-2*M-30).forEach(l=>{ doc.text(l,M+26,y); y+=12; });
-      y+=2;
+      lI.forEach(l=>{ doc.text(l,tX,cy); cy+=13; });
+      cy+=4;
     }
 
     // como resolver
-    setF(9,'bold'); col(TEALD); doc.text('Como resolver:',M+26,y); y+=12;
+    setF(9,'bold'); col(TEALD); doc.text('Como resolver:',tX,cy); cy+=13;
     setF(9,'normal'); col(INK2);
-    doc.splitTextToSize(d.solucao||'',W-2*M-40).forEach(l=>{ doc.text(l,M+26,y); y+=13; });
+    lR.forEach(l=>{ doc.text(l,tX,cy); cy+=13; });
 
-    // dado de mercado
-    if(d.bench){
+    // referência de mercado
+    if(lB.length){
+      cy+=4;
       setF(8,'italic'); col(TEALD);
-      doc.splitTextToSize('Referência: '+d.bench,W-2*M-40).forEach(l=>{ doc.text(l,M+26,y); y+=11; });
+      lB.forEach(l=>{ doc.text(l,tX,cy); cy+=11; });
     }
 
-    y+=14;
+    y+=altCard+10;
   });
 
   /* ── PRÓXIMOS PASSOS ─────────────────────────────────────────── */
@@ -2998,18 +3010,20 @@ function gerarPDFDiagnostico(){
 
   const renderPassos=(lista,icone,label,cor)=>{
     if(!lista.length) return;
-    need(24);
-    setF(8,'bold'); col(cor); doc.text(icone+' '+label.toUpperCase(),M,y); y+=14;
+    need(28);
+    setF(8,'bold'); col(cor); doc.text(icone+' '+label.toUpperCase(),M,y); y+=16;
     lista.forEach((d,i)=>{
-      need(30);
-      fill(BGCARD); doc.roundedRect(M,y-4,W-2*M,22,4,4,'F');
-      setF(8.5,'bold'); col(cor); doc.text(String(i+1)+'.',M+8,y+10);
+      const linhas=doc.splitTextToSize(d.titulo||'',W-2*M-36);
+      const cardH=10+linhas.length*13;
+      need(cardH+6);
+      fill(BGCARD); doc.roundedRect(M,y,W-2*M,cardH,4,4,'F');
+      setF(8.5,'bold'); col(cor); doc.text(String(i+1)+'.',M+8,y+13);
       setF(8.5,'normal'); col(INK);
-      const tl=doc.splitTextToSize(d.titulo,W-2*M-30)[0];
-      doc.text(tl,M+22,y+10);
-      y+=26;
+      let py=y+13;
+      linhas.forEach(l=>{ doc.text(l,M+22,py); py+=13; });
+      y+=cardH+6;
     });
-    y+=6;
+    y+=8;
   };
 
   renderPassos(passosTema,'▶','PRIORIDADE — Ações que transformam a experiência de compra',TEALD);
