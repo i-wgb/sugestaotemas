@@ -363,7 +363,7 @@
   </div>
 </div>
 
-<p class="ver-stamp">v2.9.6 · Análise de Performance e UX · Expansão · Time Comercial</p>
+<p class="ver-stamp">v2.9.7 · Análise de Performance e UX · Expansão · Time Comercial</p>
 <p class="foot">O diagnóstico é montado a partir do que está visível no código público da loja no momento da análise. A recomendação de tema cruza o segmento detectado com as lacunas encontradas; os temas e valores vêm do catálogo da Loja de Temas Tray e podem mudar — confira sempre a página e a demonstração vigentes antes de fechar. Os dados de mercado citados são de referências públicas (Baymard Institute, Opinion Box/Octadesk, ABComm) e servem de apoio ao discurso, não como promessa de resultado.</p>
 
 <script>
@@ -773,11 +773,10 @@ function acharLinksProduto(html,origin,max){
       if(/\/(produto|product|products|item)\//i.test(path)) return true;
       if(/\/[^/]+-p[0-9]+(\/|$)/i.test(path)) return true; // slug-p12345
       if(/\/p\/[^/]+(\/|$)/i.test(path)&&pu.hostname===lojaHost) return true; // /p/slug
-      // padrão slug de categoria/produto (ex: /cintos/nome-produto)
-      if(/\/[^/]+\/[^/]{3,}(\/|$)/.test(path)) return true;
-      // URL com segmentos suficientes que não é página raiz (heurística para lojas com slug direto)
+      // padrão slug de categoria/subcategoria/produto (ex: /cintos/nome-produto)
+      // só aceita se tiver exatamente 2 segmentos e o segundo parecer um produto (contém hífen e letras)
       const segs=path.replace(/\/+$/,'').split('/').filter(Boolean);
-      if(segs.length>=2&&segs[segs.length-1].length>3) return true;
+      if(segs.length===2&&/[a-z].*-.*[a-z]/i.test(segs[1])&&segs[1].length>8) return true;
       return false;
     }catch(e){ return false; }
   };
