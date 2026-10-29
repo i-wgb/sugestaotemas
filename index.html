@@ -363,7 +363,7 @@
   </div>
 </div>
 
-<p class="ver-stamp">v2.9.5 · Análise de Performance e UX · Expansão · Time Comercial</p>
+<p class="ver-stamp">v2.9.6 · Análise de Performance e UX · Expansão · Time Comercial</p>
 <p class="foot">O diagnóstico é montado a partir do que está visível no código público da loja no momento da análise. A recomendação de tema cruza o segmento detectado com as lacunas encontradas; os temas e valores vêm do catálogo da Loja de Temas Tray e podem mudar — confira sempre a página e a demonstração vigentes antes de fechar. Os dados de mercado citados são de referências públicas (Baymard Institute, Opinion Box/Octadesk, ABComm) e servem de apoio ao discurso, não como promessa de resultado.</p>
 
 <script>
@@ -762,16 +762,23 @@ function acharLinksProduto(html,origin,max){
     if(!u) return false;
     try{
       const pu=new URL(u);
-      // bloqueia domínios externos
+      // bloqueia domínios externos conhecidos
       if(EXTERNOS.test(pu.hostname)) return false;
       // só aceita URLs do mesmo domínio da loja
       if(lojaHost&&!pu.hostname.includes(lojaHost)&&!lojaHost.includes(pu.hostname)) return false;
       const path=pu.pathname;
-      // padrões de URL de produto Tray e e-commerces em geral
-      return /\/(produto|product|products|item|p)\//i.test(path) ||
-             /\/[^/]+-p[0-9]+/i.test(path) ||   // slug-p12345
-             /\/[^/]+\/[^/]+-[0-9]+$/i.test(path) || // categoria/produto-123
-             (/\/p\/[^/]+/i.test(path) && pu.hostname===lojaHost); // /p/slug só no domínio certo
+      // descarta páginas claramente não-produto
+      if(/\/(categoria|categorias|category|colec|busca|search|blog|contato|sobre|faq|politica|checkout|carrinho|cart|login|conta|account|sitemap|rss)(\/|$)/i.test(path)) return false;
+      // padrões explícitos de produto Tray
+      if(/\/(produto|product|products|item)\//i.test(path)) return true;
+      if(/\/[^/]+-p[0-9]+(\/|$)/i.test(path)) return true; // slug-p12345
+      if(/\/p\/[^/]+(\/|$)/i.test(path)&&pu.hostname===lojaHost) return true; // /p/slug
+      // padrão slug de categoria/produto (ex: /cintos/nome-produto)
+      if(/\/[^/]+\/[^/]{3,}(\/|$)/.test(path)) return true;
+      // URL com segmentos suficientes que não é página raiz (heurística para lojas com slug direto)
+      const segs=path.replace(/\/+$/,'').split('/').filter(Boolean);
+      if(segs.length>=2&&segs[segs.length-1].length>3) return true;
+      return false;
     }catch(e){ return false; }
   };
 
@@ -2628,13 +2635,14 @@ async function run(){
       if(urls.length<3&&extras.categoriaHtml){
         acharLinksProduto(extras.categoriaHtml,org,3).forEach(u=>{ if(!urls.includes(u)&&urls.length<3) urls.push(u); });
       }
-      if(urls.length){ lines[1]={s:'load',t:'Lendo '+urls.length+' página(s) de produto + categoria…'}; setStatus(lines);
+      if(urls.length){ lines[1]={s:'load',t:'Lendo '+urls.length+' página(s) de produto…'}; setStatus(lines);
         const htmls=await Promise.all(urls.map(u=>fetchText(u,13000).catch(()=>'')));
-        const validos=htmls.filter(h=>h&&h.length>300);
-        if(validos.length){
-          extras.produtoHtml=validos.join('\n<!--BREAK-->\n'); extras.produtosLidos=validos.length;
-          // analisa SEO de cada produto individualmente (até 3)
-          extras.seoProdutos=validos.map((h,i)=>analisarSeoProduto(h,urls[i]||''));
+        // preserva par [html, url] para garantir mapeamento correto mesmo com falhas
+        const pares=htmls.map((h,i)=>({h,u:urls[i]})).filter(p=>p.h&&p.h.length>300);
+        if(pares.length){
+          extras.produtoHtml=pares.map(p=>p.h).join('\n<!--BREAK-->\n');
+          extras.produtosLidos=pares.length;
+          extras.seoProdutos=pares.map(p=>analisarSeoProduto(p.h,p.u));
         }
       }
       // lê também uma página de categoria para detectar filtros inteligentes
