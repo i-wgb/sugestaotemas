@@ -363,7 +363,7 @@
   </div>
 </div>
 
-<p class="ver-stamp">v2.9.0 · Raio-X + Tema Ideal · Loja de Temas Tray</p>
+<p class="ver-stamp">v2.9.1 · Raio-X + Tema Ideal · Loja de Temas Tray</p>
 <p class="foot">O diagnóstico é montado a partir do que está visível no código público da loja no momento da análise. A recomendação de tema cruza o segmento detectado com as lacunas encontradas; os temas e valores vêm do catálogo da Loja de Temas Tray e podem mudar — confira sempre a página e a demonstração vigentes antes de fechar. Os dados de mercado citados são de referências públicas (Baymard Institute, Opinion Box/Octadesk, ABComm) e servem de apoio ao discurso, não como promessa de resultado.</p>
 
 <script>
@@ -1130,11 +1130,55 @@ function analisarLoja(html,url,extras){
   const _relacionadosReal=!!_relacionadosEl&&(_relacionadosEl.querySelectorAll('a,img').length>0);
 
   /* DESTAQUES / MAIS VENDIDOS — vitrine real com produtos */
-  const _destaquesEl=dom.querySelector(
+  /* DESTAQUES/MAIS VENDIDOS — detecção ampla com sinônimos reais usados por lojistas.
+     Camada 1: classes CSS específicas de vitrine
+     Camada 2: ids específicos de vitrine
+     Camada 3: título de seção (h2/h3) com sinônimos + produtos filhos reais
+     Camada 4: seção/div com data-section ou data-block de vitrine
+     Camada 5: texto de título na página + links de produto próximos (lojista nomeou diferente) */
+  const _DEST_RX=/mais.?vendidos|best.?seller|destaques?|em.?alta|novidades?|lançamentos?|lancamentos?|promo[çc][ãa]o|promos?|queridinhos?|curadoria|selecionados?|mais.?pedidos?|top.?produtos?|vitrine|showcase|featured|hot.?products?|trending|tendên|tendenc|recomendados?|popular/i;
+
+  // camada 1: classes CSS
+  const _destCls=dom.querySelector(
     '[class*="mais-vendidos"],[class*="best-seller"],[class*="destaques"],[class*="em-alta"],'+
-    '[class*="featured"],[class*="hot-products"],[class*="queridinhos"]'
+    '[class*="featured"],[class*="hot-products"],[class*="queridinhos"],[class*="vitrine"],'+
+    '[class*="showcase"],[class*="trending"],[class*="novidades"],[class*="lancamentos"],'+
+    '[class*="lançamentos"],[class*="promocoes"],[class*="promoções"],[class*="recomendados"],'+
+    '[class*="mais-pedidos"],[class*="top-produtos"],[class*="curadoria"],[class*="selecionados"]'
   );
-  const _destaquesReal=!!_destaquesEl&&(_destaquesEl.querySelectorAll('a,img').length>1);
+  // camada 2: ids específicos
+  const _destId=dom.querySelector(
+    '[id*="mais-vendidos"],[id*="destaques"],[id*="vitrine"],[id*="featured"],'+
+    '[id*="novidades"],[id*="promocoes"],[id*="lancamentos"],[id*="recomendados"]'
+  );
+  // camada 3: título de seção com sinônimo + produtos dentro
+  const _destTitulo=(()=>{
+    const heads=[...dom.querySelectorAll('h2,h3,h4,[class*="section-title"],[class*="titulo-secao"],[class*="shelf-title"],[class*="vitrine-title"]')];
+    return heads.find(el=>{
+      if(!_DEST_RX.test(el.textContent||'')) return false;
+      // verifica se há produtos (links ou imagens) próximos ao título
+      const secao=el.closest('section,div,[class*="section"],[class*="shelf"],[class*="vitrine"]')||el.parentElement;
+      if(!secao) return false;
+      return secao.querySelectorAll('a[href*="/produto"],a[href*="/product"],img').length>=2;
+    });
+  })();
+  // camada 4: data-section/data-block de vitrine
+  const _destData=dom.querySelector('[data-section*="vitrine"],[data-section*="destaque"],[data-section*="shelf"],[data-block*="vitrine"],[data-block*="destaque"],[data-shelf]');
+  // camada 5: fallback — qualquer seção/div com texto de título de destaque E pelo menos 3 links de produto
+  const _destFallback=(()=>{
+    if(_destCls||_destId||_destTitulo||_destData) return false; // já encontrou, não precisa
+    const secsAll=[...dom.querySelectorAll('section,div[class*="row"],div[class*="grid"],div[class*="produtos"],div[class*="products"]')];
+    return secsAll.find(el=>{
+      const txt=(el.textContent||'').slice(0,200);
+      if(!_DEST_RX.test(txt)) return false;
+      return el.querySelectorAll('a[href*="/produto"],a[href*="/product"]').length>=3;
+    });
+  })();
+
+  const _destaquesReal=!!(_destCls||_destId||_destTitulo||_destData||_destFallback)&&
+    ((_destCls&&_destCls.querySelectorAll('a,img').length>1)||
+     (_destId&&_destId.querySelectorAll('a,img').length>1)||
+     !!_destTitulo||!!_destData||!!_destFallback);
 
   /* CUPOM */
   const _cupomEl=!!dom.querySelector('input[name*="cupom"],input[name*="coupon"],input[placeholder*="cupom" i],[class*="cupom"],[class*="coupon"]');
@@ -1898,19 +1942,32 @@ async function recomendarTemas(L,onStep){
       )) return true;
       return /zoom|magnif|lightbox|quickview|fancybox|lupa/i.test(h);
     }
-    // helper: detecta destaques/mais vendidos na home
+    // helper: detecta destaques/mais vendidos na home — sinônimos reais dos lojistas
+    const _DEST_RX2=/mais.?vendidos|best.?seller|destaques?|em.?alta|novidades?|lançamentos?|lancamentos?|promo[çc][ãa]o|promos?|queridinhos?|curadoria|selecionados?|mais.?pedidos?|top.?produtos?|vitrine|showcase|featured|hot.?products?|trending|tendên|tendenc|recomendados?|popular/i;
     function temDestaques(d){
-      const el=d.querySelector(
+      // classes e ids específicos
+      const elCls=d.querySelector(
         '[class*="mais-vendidos"],[class*="best-seller"],[class*="destaques"],[class*="em-alta"],'+
         '[class*="featured"],[class*="hot-products"],[class*="queridinhos"],[class*="vitrine"],'+
-        '[class*="showcase"],[class*="destaque"],[id*="destaques"],[id*="mais-vendidos"],'+
-        '[class*="top-produtos"],[class*="produtos-destaque"],[class*="lancamentos"]'
+        '[class*="showcase"],[class*="trending"],[class*="novidades"],[class*="lancamentos"],'+
+        '[class*="lançamentos"],[class*="promocoes"],[class*="recomendados"],[class*="curadoria"]'
       );
-      if(el&&el.querySelectorAll('a,img').length>1) return true;
-      // seções com título de destaque seguidas de produtos
+      if(elCls&&elCls.querySelectorAll('a,img').length>1) return true;
+      const elId=d.querySelector('[id*="mais-vendidos"],[id*="destaques"],[id*="vitrine"],[id*="featured"],[id*="novidades"],[id*="promocoes"]');
+      if(elId&&elId.querySelectorAll('a,img').length>1) return true;
+      // título de seção com sinônimo + produtos próximos
+      const heads=[...d.querySelectorAll('h2,h3,h4,[class*="section-title"],[class*="shelf-title"],[class*="vitrine-title"]')];
+      const temTituloSec=heads.find(el=>{
+        if(!_DEST_RX2.test(el.textContent||'')) return false;
+        const sec=el.closest('section,div')||el.parentElement;
+        return sec&&sec.querySelectorAll('a,img').length>=2;
+      });
+      if(temTituloSec) return true;
+      // data-section/data-block
+      if(d.querySelector('[data-section*="vitrine"],[data-section*="destaque"],[data-block*="vitrine"],[data-shelf]')) return true;
+      // fallback: texto de página + links de produto
       const txt=d.body?d.body.textContent:'';
-      const temTitulo=/mais vendidos|destaques|em alta|novidades|lançamentos|best sellers|produtos em destaque/i.test(txt);
-      if(temTitulo&&d.querySelectorAll('a[href*="/produto"],a[href*="/product"]').length>3) return true;
+      if(_DEST_RX2.test(txt)&&d.querySelectorAll('a[href*="/produto"],a[href*="/product"]').length>3) return true;
       return false;
     }
 
