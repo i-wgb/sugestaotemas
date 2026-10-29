@@ -363,7 +363,7 @@
   </div>
 </div>
 
-<p class="ver-stamp">v2.9.3 · Raio-X + Tema Ideal · Loja de Temas Tray</p>
+<p class="ver-stamp">v2.9.4 · Raio-X + Tema Ideal · Loja de Temas Tray</p>
 <p class="foot">O diagnóstico é montado a partir do que está visível no código público da loja no momento da análise. A recomendação de tema cruza o segmento detectado com as lacunas encontradas; os temas e valores vêm do catálogo da Loja de Temas Tray e podem mudar — confira sempre a página e a demonstração vigentes antes de fechar. Os dados de mercado citados são de referências públicas (Baymard Institute, Opinion Box/Octadesk, ABComm) e servem de apoio ao discurso, não como promessa de resultado.</p>
 
 <script>
@@ -753,33 +753,57 @@ function acharTemaCatalogo(nome){
 /* acha vários links de produto (para ler o frete/avaliações em mais de uma página) */
 function acharLinksProduto(html,origin,max){
   max=max||3; const out=[]; const seen=new Set();
+  // domínio base da loja — só aceita URLs do mesmo domínio
+  const lojaHost=(origin||'').replace(/^https?:\/\//,'').replace(/\/.*$/,'').toLowerCase();
+  // lista de domínios externos a bloquear (redes sociais, marketplaces, etc.)
+  const EXTERNOS=/instagram\.com|facebook\.com|tiktok\.com|youtube\.com|twitter\.com|whatsapp\.com|wa\.me|mercadolivre|shopee|amazon\.com|google\.com|pinterest\.com/i;
+
+  const ehProduto=u=>{
+    if(!u) return false;
+    try{
+      const pu=new URL(u);
+      // bloqueia domínios externos
+      if(EXTERNOS.test(pu.hostname)) return false;
+      // só aceita URLs do mesmo domínio da loja
+      if(lojaHost&&!pu.hostname.includes(lojaHost)&&!lojaHost.includes(pu.hostname)) return false;
+      const path=pu.pathname;
+      // padrões de URL de produto Tray e e-commerces em geral
+      return /\/(produto|product|products|item|p)\//i.test(path) ||
+             /\/[^/]+-p[0-9]+/i.test(path) ||   // slug-p12345
+             /\/[^/]+\/[^/]+-[0-9]+$/i.test(path) || // categoria/produto-123
+             (/\/p\/[^/]+/i.test(path) && pu.hostname===lojaHost); // /p/slug só no domínio certo
+    }catch(e){ return false; }
+  };
+
   const push=h=>{
     const u=resolveUrl(h,origin);
-    if(!u||seen.has(u)) return;
-    // evita duplicatas por slug (mesmo produto com parâmetros diferentes)
-    const slug=u.replace(/[?#].*/,'').replace(/\/+$/,'');
+    if(!u||!ehProduto(u)) return;
+    const slug=u.replace(/[?#].*/,'').replace(/\/+$/,'').toLowerCase();
     if(seen.has(slug)) return;
-    seen.add(u); seen.add(slug); out.push(u);
+    seen.add(slug); out.push(u);
   };
+
   try{
     const dom=new DOMParser().parseFromString(html,'text/html');
     const links=[...dom.querySelectorAll('a[href]')];
-    // prioriza produtos de seções distintas — pega um de cada seção/shelf
+    // prioriza um produto de cada seção distinta
     const secoes=[...dom.querySelectorAll('section,div[class*="shelf"],div[class*="vitrine"],div[class*="grid"],div[class*="produtos"],ul[class*="produtos"]')];
     secoes.forEach(sec=>{
       if(out.length>=max) return;
-      const hrefs=[...sec.querySelectorAll('a[href]')].map(a=>a.getAttribute('href')||'');
-      const prodHref=hrefs.find(x=>/\/(produto|product)\//i.test(x)||/\/p\/[^/]+/i.test(x)||/-p\d+/i.test(x));
-      if(prodHref) push(prodHref);
+      [...sec.querySelectorAll('a[href]')].map(a=>a.getAttribute('href')||'').forEach(h=>{
+        if(out.length>=max) return;
+        push(h);
+      });
     });
-    // complementa com qualquer link de produto não repetido
+    // complementa com qualquer link de produto válido
     if(out.length<max){
-      const hrefs=links.map(a=>a.getAttribute('href')||'');
-      hrefs.filter(x=>/\/(produto|product)\//i.test(x)).forEach(h=>{ if(out.length<max) push(h); });
-      if(out.length<max) hrefs.filter(x=>/\/p\/[^/]+/i.test(x)||/-p\d+/i.test(x)).forEach(h=>{ if(out.length<max) push(h); });
+      links.map(a=>a.getAttribute('href')||'').forEach(h=>{
+        if(out.length>=max) return;
+        push(h);
+      });
     }
   }catch(e){
-    (html.match(/href=["']([^"']*\/(?:produto|product)\/[^"']+)["']/gi)||[]).forEach(m=>{
+    (html.match(/href=["']([^"']+)["']/gi)||[]).forEach(m=>{
       if(out.length>=max) return;
       const h=(m.match(/href=["']([^"']+)["']/i)||[])[1]; if(h) push(h);
     });
