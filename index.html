@@ -363,7 +363,7 @@
   </div>
 </div>
 
-<p class="ver-stamp">v2.9.4 · Raio-X + Tema Ideal · Loja de Temas Tray</p>
+<p class="ver-stamp">v2.9.5 · Raio-X + Tema Ideal · Loja de Temas Tray</p>
 <p class="foot">O diagnóstico é montado a partir do que está visível no código público da loja no momento da análise. A recomendação de tema cruza o segmento detectado com as lacunas encontradas; os temas e valores vêm do catálogo da Loja de Temas Tray e podem mudar — confira sempre a página e a demonstração vigentes antes de fechar. Os dados de mercado citados são de referências públicas (Baymard Institute, Opinion Box/Octadesk, ABComm) e servem de apoio ao discurso, não como promessa de resultado.</p>
 
 <script>
@@ -3078,395 +3078,269 @@ function gerarPDFDiagnostico(){
   const {jsPDF}=window.jspdf;
   const doc=new jsPDF({orientation:'portrait',unit:'pt',format:'a4'});
   const W=doc.internal.pageSize.getWidth(), H=doc.internal.pageSize.getHeight();
-  const M=44; let y=M;
+  const M=48; let y=M; let pgNum=1;
 
-  // paleta
   const INK=[0,1,42],INK2=[44,62,100],MUT=[120,140,170],TEAL=[0,160,220],TEALD=[0,120,180];
-  const GREEN=[22,163,74],RED=[185,28,28],GOLD=[161,98,7],ORANGE=[194,120,10];
-  const BG=[237,245,251],BGCARD=[248,250,252],LINE=[210,228,240];
+  const GREEN=[22,163,74],RED=[185,28,28],GOLD=[161,98,7];
+  const BG=[237,245,251],BGCARD=[248,252,255],LINE=[210,228,240];
 
-  // helpers
   const col=c=>doc.setTextColor(c[0],c[1],c[2]);
   const fill=c=>doc.setFillColor(c[0],c[1],c[2]);
   const draw=c=>doc.setDrawColor(c[0],c[1],c[2]);
   const setF=(s,w)=>{ doc.setFontSize(s); doc.setFont('helvetica',w||'normal'); };
-  const need=n=>{ if(y+n>H-56){ doc.addPage(); y=M+8; footerFn(); } };
-  const wrapT=(txt,fs,fw,co,lh,x,mw)=>{
-    if(!txt) return;
-    setF(fs,fw); col(co);
-    doc.splitTextToSize(String(txt),(mw||W-2*M)).forEach(l=>{ need(lh+4); doc.text(l,x||M,y); y+=lh; });
-  };
-  const hRule=(co)=>{ draw(co||LINE); doc.setLineWidth(0.5); doc.line(M,y,W-M,y); y+=10; };
   const scoreColor=v=>v>=70?TEAL:v>=45?GOLD:RED;
   const labelNota=v=>v>=70?'Bom':v>=45?'Em evolução':'Precisa de atenção';
 
-  // footer em cada página
   const footerFn=()=>{
     const pg=doc.getCurrentPageInfo().pageNumber;
-    const tot=doc.getNumberOfPages();
     setF(7,'normal'); col(MUT);
-    doc.text('Diagnóstico de E-commerce · '+new Date().toLocaleDateString('pt-BR'),M,H-20);
+    draw(LINE); doc.setLineWidth(0.4); doc.line(M,H-32,W-M,H-32);
+    doc.text('Diagnóstico de E-commerce · '+(L.nomeLoja||L.host||''),M,H-20);
     if(vendedor.nome) doc.text(vendedor.nome,W/2,H-20,{align:'center'});
-    doc.text('Página '+pg+' de '+tot,W-M,H-20,{align:'right'});
-    draw(LINE); doc.setLineWidth(0.4); doc.line(M,H-30,W-M,H-30);
+    doc.text('Página '+pg,W-M,H-20,{align:'right'});
   };
 
-  /* ══════════════════════════════════════════════════════════════════
-     CAPA — página inteira, sem rodapé de página
-  ══════════════════════════════════════════════════════════════════ */
-  // fundo navy full
-  fill(INK); doc.rect(0,0,W,H,'F');
-  // faixa teal no topo
-  fill(TEAL); doc.rect(0,0,W,6,'F');
-  // faixa inferior
-  fill([0,80,140]); doc.rect(0,H-80,W,80,'F');
+  // nova página sempre em nova seção — garante que cada assunto começa numa página limpa
+  const novaPagina=()=>{ footerFn(); doc.addPage(); pgNum++; y=M+10; };
 
-  // label tipo documento
-  setF(8,'bold'); doc.setTextColor(TEAL[0],TEAL[1],TEAL[2]);
-  doc.text('DIAGNÓSTICO DE EXPERIÊNCIA DE COMPRA',M,60);
+  // "need": se não couber, quebra página
+  const need=n=>{ if(y+n>H-60) novaPagina(); };
 
-  // nome da loja
-  setF(28,'bold'); doc.setTextColor(255,255,255);
-  const nomeLoja=L.nomeLoja||L.host||'Loja';
-  doc.splitTextToSize(nomeLoja,W-2*M).forEach((l,i)=>doc.text(l,M,98+i*34));
+  const wrapT=(txt,fs,fw,co,lh,x,mw)=>{
+    if(!txt) return 0;
+    setF(fs,fw); col(co);
+    const lines=doc.splitTextToSize(String(txt),(mw||W-2*M));
+    lines.forEach(l=>{ need(lh+4); doc.text(l,x||M,y); y+=lh; });
+    return lines.length;
+  };
 
-  // URL
-  setF(11,'normal'); doc.setTextColor(TEAL[0],TEAL[1],TEAL[2]);
-  doc.text((L.host||'').toLowerCase(),M,148);
-
-  // divider
-  fill(TEAL); doc.rect(M,164,60,3,'F');
-
-  // score grande centralizado
-  const scX=W/2, scY=240;
-  fill([0,20,60]); doc.roundedRect(scX-70,scY-30,140,110,12,12,'F');
-  setF(8,'normal'); doc.setTextColor(TEAL[0],TEAL[1],TEAL[2]);
-  doc.text('SCORE GERAL DE EXPERIÊNCIA',scX,scY-8,{align:'center'});
-  setF(52,'bold');
-  const sc=L.score.total;
-  doc.setTextColor(sc>=70?TEAL[0]:sc>=45?GOLD[0]:RED[0],
-                   sc>=70?TEAL[1]:sc>=45?GOLD[1]:RED[1],
-                   sc>=70?TEAL[2]:sc>=45?GOLD[2]:RED[2]);
-  doc.text(String(sc),scX,scY+50,{align:'center'});
-  setF(10,'normal'); doc.setTextColor(200,220,240);
-  doc.text('/100  ·  '+L.score.rotulo.toUpperCase(),scX,scY+68,{align:'center'});
-
-  // 3 métricas na capa
-  const metY=H-180;
-  [[L.perfil.segmento.nome,'Segmento'],[cap(L.perfil.porte),'Porte da operação'],
-   [L.perfil.produtos?L.perfil.produtos+' produtos':'—','Catálogo']].forEach((m,i)=>{
-    const mx=M+i*(W-2*M)/3;
-    setF(16,'bold'); doc.setTextColor(255,255,255); doc.text(m[0].slice(0,18),mx,metY);
-    setF(8,'normal'); doc.setTextColor(TEAL[0],TEAL[1],TEAL[2]); doc.text(m[1].toUpperCase(),mx,metY+16);
-  });
-
-  // data e consultor
-  setF(8,'normal'); doc.setTextColor(180,200,220);
-  doc.text('Análise realizada em '+new Date().toLocaleDateString('pt-BR'),M,H-30);
-  if(vendedor.nome){ setF(8,'bold'); doc.text(vendedor.nome,W-M,H-30,{align:'right'}); }
-
-  /* ══════════════════════════════════════════════════════════════════
-     PÁG 2+ — conteúdo do diagnóstico
-  ══════════════════════════════════════════════════════════════════ */
-  doc.addPage(); y=M+8; footerFn();
-
-  // helper seção
+  // Cabeçalho de seção — sempre inicia em nova página
   const secao=(kicker,titulo,subtitulo)=>{
-    need(56);
-    setF(7,'bold'); col(TEAL); doc.text(kicker.toUpperCase(),M,y); y+=13;
-    setF(17,'bold'); col(INK); doc.text(titulo,M,y); y+=8;
-    draw(TEAL); doc.setLineWidth(2); doc.line(M,y,M+50,y);
-    draw(LINE); doc.setLineWidth(0.4); doc.line(M+52,y,W-M,y);
-    y+=14;
-    if(subtitulo){ wrapT(subtitulo,9.5,'normal',MUT,13,M,W-2*M); y+=6; }
+    novaPagina();
+    setF(7,'bold'); col(TEAL); doc.text(kicker.toUpperCase(),M,y); y+=14;
+    setF(18,'bold'); col(INK); doc.text(titulo,M,y); y+=9;
+    draw(TEAL); doc.setLineWidth(2.5); doc.line(M,y,M+55,y);
+    draw(LINE); doc.setLineWidth(0.4); doc.line(M+57,y,W-M,y);
+    y+=18;
+    if(subtitulo){ wrapT(subtitulo,9.5,'normal',MUT,13,M,W-2*M); y+=10; }
   };
 
-  /* ── RESUMO EXECUTIVO ─────────────────────────────────────────── */
-  secao('Visão geral','Resumo Executivo');
+  /* ══ PÁG 1 — CAPA / RESUMO EXECUTIVO ═══════════════════════════ */
+  // cabeçalho de identificação
+  fill([0,1,42]); doc.rect(0,0,W,90,'F');
+  fill(TEAL); doc.rect(0,0,W,5,'F');
+  setF(8,'bold'); doc.setTextColor(TEAL[0],TEAL[1],TEAL[2]);
+  doc.text('DIAGNÓSTICO DE EXPERIÊNCIA DE COMPRA',M,34);
+  setF(20,'bold'); doc.setTextColor(255,255,255);
+  doc.text((L.nomeLoja||L.host||'Loja').slice(0,55),M,58);
+  setF(9,'normal'); doc.setTextColor(180,200,220);
+  doc.text((L.host||'').toLowerCase(),M,74);
+  if(vendedor.nome){ setF(8,'normal'); doc.text(vendedor.nome+'  ·  '+new Date().toLocaleDateString('pt-BR'),W-M,74,{align:'right'}); }
+  y=110;
 
-  // gera o resumo a partir dos dados reais
-  const nFortes=state.fortes?state.fortes.length:0;
-  const nFracos=state.fracos?state.fracos.length:0;
+  // bloco de score + perfil lado a lado
+  // score
+  const scX=M, scY=y;
+  const sc=L.score.total;
+  const scCor=scoreColor(sc);
+  fill(BG); doc.roundedRect(scX,scY,110,72,8,8,'F');
+  draw(scCor); doc.setLineWidth(2); doc.roundedRect(scX,scY,110,72,8,8,'S');
+  setF(7,'bold'); col(MUT); doc.text('SCORE GERAL',scX+55,scY+14,{align:'center'});
+  setF(34,'bold'); col(scCor); doc.text(String(sc),scX+55,scY+46,{align:'center'});
+  setF(8,'normal'); col(MUT); doc.text('/100 · '+L.score.rotulo,scX+55,scY+62,{align:'center'});
+
+  // perfil
+  const pX=M+122;
+  fill(BGCARD); doc.roundedRect(pX,scY,W-M-pX,72,8,8,'F');
+  const kv=(k,v,px,py)=>{ setF(7.5,'normal'); col(MUT); doc.text(k,px,py); setF(9.5,'bold'); col(INK); doc.text(String(v).slice(0,28),px,py+13); };
+  kv('Segmento',L.perfil.segmento.nome,pX+10,scY+16);
+  kv('Porte',cap(L.perfil.porte),pX+130,scY+16);
+  kv('Produtos',L.perfil.produtos||'—',pX+10,scY+48);
+  kv('Ticket',L.perfil.precos.ok?brl(L.perfil.precos.mediana):'—',pX+130,scY+48);
+  y=scY+88;
+
+  // resumo executivo
+  setF(11,'bold'); col(TEALD); doc.text('Resumo Executivo',M,y); y+=6;
+  draw(TEAL); doc.setLineWidth(1.5); doc.line(M,y,W-M,y); y+=12;
+  const nFortes=state.fortes?state.fortes.length:0, nFracos=state.fracos?state.fracos.length:0;
   const frentesFrageis=L.score.eixos.filter(e=>e.valor<50).map(e=>e.nome.toLowerCase());
   const frentesOk=L.score.eixos.filter(e=>e.valor>=70).map(e=>e.nome.toLowerCase());
-  let resumo='';
-  const seg=L.perfil.segmento.nome||'e-commerce';
-  const porte=cap(L.perfil.porte||'pequena');
-  const ticket=L.perfil.precos.ok?brl(L.perfil.precos.mediana):'ticket médio não identificado';
-  resumo+=porte+' operação de '+seg+' com ticket médio de '+ticket+'. ';
-  if(frentesOk.length){ resumo+='A loja demonstra bom desempenho em '+listPt(frentesOk)+'. '; }
-  if(frentesFrageis.length){
-    resumo+='As frentes que mais impactam a conversão hoje são '+listPt(frentesFrageis)+
-      ' — e representam as maiores oportunidades de crescimento sem aumentar investimento em tráfego. ';
-  }
-  resumo+='Foram identificados '+nFortes+' ponto'+(nFortes!==1?'s':'')+' forte'+(nFortes!==1?'s':'')+
-    ' e '+nFracos+' oportunidade'+(nFracos!==1?'s':'')+' de melhoria com evidência direta no código da loja.';
-
-  // card de resumo
-  need(100);
-  fill(BG); doc.roundedRect(M,y-4,W-2*M,90,8,8,'F');
-  draw(TEAL); doc.setLineWidth(3); doc.line(M,y-4,M,y+86);
-  wrapT(resumo,10.5,'normal',INK2,15,M+14,W-2*M-18);
+  let resumo=cap(L.perfil.porte)+' operação de '+L.perfil.segmento.nome+(L.perfil.precos.ok?' com ticket médio de '+brl(L.perfil.precos.mediana):'')+'. ';
+  if(frentesOk.length) resumo+='Bom desempenho em '+listPt(frentesOk)+'. ';
+  if(frentesFrageis.length) resumo+='As frentes que mais impactam a conversão hoje são '+listPt(frentesFrageis)+' — maiores oportunidades de crescimento sem aumentar tráfego. ';
+  resumo+='Foram identificados '+nFortes+' ponto'+(nFortes!==1?'s':'')+' forte'+(nFortes!==1?'s':'')+' e '+nFracos+' oportunidade'+(nFracos!==1?'s':'')+' de melhoria com evidência direta no código da loja.';
+  fill(BG); doc.roundedRect(M,y-4,W-2*M,100,6,6,'F');
+  draw(TEAL); doc.setLineWidth(3); doc.line(M,y-4,M,y+96);
+  wrapT(resumo,10,'normal',INK2,14,M+12,W-2*M-16);
   y+=12;
 
-  /* ── NOTAS POR FRENTE ─────────────────────────────────────────── */
+  /* ══ NOTAS POR FRENTE — nova página ══════════════════════════════ */
   secao('Diagnóstico por frente','Análise da Experiência de Compra',
-    'Cada frente foi avaliada com base na leitura direta do código da loja. As notas refletem o estado atual — não uma estimativa.');
-
+    'Cada frente foi avaliada com base na leitura direta do código da loja. As notas refletem o estado atual.');
   L.score.eixos.forEach(e=>{
     need(52);
     const cor=scoreColor(e.valor);
     const lbl=labelNota(e.valor);
-    // fundo card
-    fill(BGCARD); doc.roundedRect(M,y-4,W-2*M,42,6,6,'F');
-    draw(cor); doc.setLineWidth(3); doc.line(M,y-4,M,y+38);
-    // nome da frente
-    setF(10.5,'bold'); col(INK); doc.text(e.nome,M+14,y+10);
-    // label status
-    setF(8,'bold'); col(cor); doc.text(lbl,W-M-60,y+10,{align:'right'});
-    // nota
-    setF(14,'bold'); col(cor); doc.text(e.valor+'/100',W-M,y+10,{align:'right'});
-    // barra de progresso
-    const bw=W-2*M-14, bx=M+14, by=y+22;
-    fill([230,236,244]); doc.roundedRect(bx,by,bw,5,2,2,'F');
+    fill(BGCARD); doc.roundedRect(M,y,W-2*M,38,5,5,'F');
+    draw(cor); doc.setLineWidth(3); doc.line(M,y,M,y+38);
+    setF(10.5,'bold'); col(INK); doc.text(e.nome,M+14,y+14);
+    setF(8,'bold'); col(cor); doc.text(lbl,W-M-68,y+14,{align:'right'});
+    setF(13,'bold'); col(cor); doc.text(e.valor+'/100',W-M,y+14,{align:'right'});
+    const bw=W-2*M-14, bx=M+14, by=y+24;
+    fill([225,232,242]); doc.roundedRect(bx,by,bw,5,2,2,'F');
     fill(cor); doc.roundedRect(bx,by,Math.max(3,bw*e.valor/100),5,2,2,'F');
-    y+=50;
+    y+=48;
   });
-  y+=10;
 
-  /* ── PONTOS FORTES ────────────────────────────────────────────── */
+  /* ══ PONTOS FORTES — nova página ═════════════════════════════════ */
   if(state.fortes&&state.fortes.length){
     secao('O que está funcionando bem','Pontos Fortes Identificados',
       'Recursos e boas práticas já presentes na loja que contribuem positivamente para a experiência de compra.');
-    state.fortes.forEach((f,i)=>{
-      // calcula altura real do card antes de desenhar
-      const tituloLinhas=doc.splitTextToSize(f.titulo||'',W-2*M-36).length;
-      const descLinhas=doc.splitTextToSize(f.txt||'',W-2*M-36).length;
-      const cardH=10+(tituloLinhas*13)+(descLinhas*12)+14;
-      need(cardH+8);
-      fill([240,252,244]); doc.roundedRect(M,y,W-2*M,cardH,6,6,'F');
-      draw(GREEN); doc.setLineWidth(3); doc.line(M,y,M,y+cardH);
-      // ícone
-      setF(11,'bold'); col(GREEN); doc.text('✓',M+10,y+16);
-      // título
+    state.fortes.forEach(f=>{
+      const lT=doc.splitTextToSize(f.titulo||'',W-2*M-36);
+      const lD=doc.splitTextToSize(f.txt||'',W-2*M-36);
+      const ch=12+lT.length*13+lD.length*12+10;
+      need(ch+8);
+      fill([240,252,244]); doc.roundedRect(M,y,W-2*M,ch,5,5,'F');
+      draw(GREEN); doc.setLineWidth(3); doc.line(M,y,M,y+ch);
+      setF(10,'bold'); col(GREEN); doc.text('✓',M+8,y+14);
       setF(10.5,'bold'); col(INK);
-      let ty=y+16;
-      doc.splitTextToSize(f.titulo||'',W-2*M-36).forEach(l=>{ doc.text(l,M+26,ty); ty+=13; });
-      // descrição
+      let ty=y+14;
+      lT.forEach(l=>{ doc.text(l,M+22,ty); ty+=13; });
       setF(9,'normal'); col(INK2);
-      doc.splitTextToSize(f.txt||'',W-2*M-36).forEach(l=>{ doc.text(l,M+26,ty); ty+=12; });
-      y+=cardH+8;
+      lD.forEach(l=>{ doc.text(l,M+22,ty); ty+=12; });
+      y+=ch+10;
     });
-    y+=4;
   }
 
-  /* ── OPORTUNIDADES ORDENADAS POR IMPACTO ─────────────────────── */
-  // ordena fracos: isConfig por último, resto por impacto estimado (bench = maior impacto)
+  /* ══ OPORTUNIDADES DE MELHORIA — nova página ═════════════════════ */
   const fracosSorted=[...(state.fracos||[])].sort((a,b)=>{
-    if(a.isConfig&&!b.isConfig) return 1;
-    if(!a.isConfig&&b.isConfig) return -1;
-    if(a.bench&&!b.bench) return -1;
-    if(!a.bench&&b.bench) return 1;
-    return 0;
+    if(a.isConfig&&!b.isConfig) return 1; if(!a.isConfig&&b.isConfig) return -1;
+    if(a.bench&&!b.bench) return -1; if(!a.bench&&b.bench) return 1; return 0;
   });
-
   secao('Onde há espaço para crescer','Oportunidades de Melhoria',
-    'Ordenadas por potencial de impacto na conversão. Cada ponto foi identificado com evidência no código da loja — não são suposições.');
-
+    'Ordenadas por potencial de impacto na conversão. Cada ponto foi identificado com evidência no código da loja.');
   fracosSorted.forEach((d,i)=>{
     const cor=d.isConfig?GOLD:RED;
     const bgItem=d.isConfig?[255,248,230]:[255,245,245];
-    const iX=M+10, tX=M+26, cW=W-2*M-36;
-
-    // pré-calcula todas as linhas para saber a altura exata do card
+    const iX=M+10,tX=M+26,cW=W-2*M-36;
     const lT=doc.splitTextToSize(d.titulo||'',cW);
     const lEv=(d.evidencias&&d.evidencias.length)?doc.splitTextToSize(d.evidencias.join(' · '),cW):[];
     const lI=d.impacto?doc.splitTextToSize('Impacto: '+d.impacto,cW):[];
     const lR=doc.splitTextToSize('Como resolver: '+(d.solucao||''),cW);
     const lB=d.bench?doc.splitTextToSize('Referência: '+d.bench,cW):[];
-    const altCard=16+(lT.length*14)+(lEv.length?lEv.length*11+8:0)+(lI.length?lI.length*13+4:0)+lR.length*13+(lB.length?lB.length*11+4:0)+16;
-
+    const altCard=16+lT.length*14+(lEv.length?lEv.length*11+8:0)+(lI.length?lI.length*13+4:0)+lR.length*13+(lB.length?lB.length*11+4:0)+16;
     need(altCard+10);
-
-    fill(bgItem); doc.roundedRect(M,y,W-2*M,altCard,6,6,'F');
+    fill(bgItem); doc.roundedRect(M,y,W-2*M,altCard,5,5,'F');
     draw(cor); doc.setLineWidth(3); doc.line(M,y,M,y+altCard);
-
     let cy=y+16;
-
-    // número + título
     setF(9,'bold'); col(cor); doc.text(String(i+1)+'.',iX,cy);
-    setF(10.5,'bold'); col(INK);
-    lT.forEach(l=>{ doc.text(l,tX,cy); cy+=14; });
-    cy+=4;
-
-    // evidência
-    if(lEv.length){
-      setF(8,'bold'); col(MUT); doc.text('Evidência:',tX,cy); cy+=12;
-      setF(8,'normal'); col(MUT);
-      lEv.forEach(l=>{ doc.text(l,tX,cy); cy+=11; });
-      cy+=4;
-    }
-
-    // impacto
-    if(lI.length){
-      setF(8.5,'bold'); col(cor);
-      lI.forEach(l=>{ doc.text(l,tX,cy); cy+=13; });
-      cy+=4;
-    }
-
-    // como resolver
+    setF(10.5,'bold'); col(INK); lT.forEach(l=>{ doc.text(l,tX,cy); cy+=14; }); cy+=4;
+    if(lEv.length){ setF(8,'bold'); col(MUT); doc.text('Evidência:',tX,cy); cy+=12; setF(8,'normal'); col(MUT); lEv.forEach(l=>{ doc.text(l,tX,cy); cy+=11; }); cy+=4; }
+    if(lI.length){ setF(8.5,'bold'); col(cor); lI.forEach(l=>{ doc.text(l,tX,cy); cy+=13; }); cy+=4; }
     setF(9,'bold'); col(TEALD); doc.text('Como resolver:',tX,cy); cy+=13;
-    setF(9,'normal'); col(INK2);
-    lR.forEach(l=>{ doc.text(l,tX,cy); cy+=13; });
-
-    // referência de mercado
-    if(lB.length){
-      cy+=4;
-      setF(8,'italic'); col(TEALD);
-      lB.forEach(l=>{ doc.text(l,tX,cy); cy+=11; });
-    }
-
-    y+=altCard+10;
+    setF(9,'normal'); col(INK2); lR.forEach(l=>{ doc.text(l,tX,cy); cy+=13; });
+    if(lB.length){ cy+=4; setF(8,'italic'); col(TEALD); lB.forEach(l=>{ doc.text(l,tX,cy); cy+=11; }); }
+    y+=altCard+12;
   });
 
-  /* ── SEO DOS PRODUTOS ────────────────────────────────────────── */
+  /* ══ SEO DOS PRODUTOS — nova página ══════════════════════════════ */
   const seoProdutos=state.seoProdutos||[];
   if(seoProdutos.length){
     secao('SEO dos produtos','Análise de SEO em '+seoProdutos.length+' Produto'+(seoProdutos.length>1?'s':''),
-      'Cada produto analisado com base na página real da loja. O SEO de produto impacta diretamente o ranqueamento orgânico e a taxa de cliques no Google.');
-
+      'Análise de título, meta description, H1, descrição completa e simplificada, imagens, canonical, schema.org e Open Graph de cada produto lido ao vivo.');
     seoProdutos.forEach((p,pi)=>{
-      need(40);
-      // cabeçalho do produto
-      fill([237,245,251]); doc.roundedRect(M,y,W-2*M,28,6,6,'F');
-      setF(8,'bold'); col(TEAL); doc.text('PRODUTO '+(pi+1),M+10,y+10);
+      need(44);
+      fill([230,240,250]); doc.roundedRect(M,y,W-2*M,28,5,5,'F');
+      setF(7,'bold'); col(TEALD); doc.text('PRODUTO '+(pi+1),M+10,y+10);
       setF(10,'bold'); col(INK);
-      doc.text(doc.splitTextToSize(p.nomeProduto,W-2*M-100)[0],M+75,y+10);
-      // badge ok/nok
-      const totalProb=p.problemas.length, totalOk=p.ok.length;
-      const badgeCol=totalProb===0?GREEN:totalProb<=2?GOLD:RED;
-      setF(8,'bold'); col(badgeCol);
-      doc.text(totalProb+' problema'+(totalProb!==1?'s':''),W-M,y+10,{align:'right'});
+      doc.text(doc.splitTextToSize(p.nomeProduto,W-2*M-110)[0],M+74,y+10);
+      const nb=p.problemas.length; const badgeCor=nb===0?GREEN:nb<=2?GOLD:RED;
+      setF(8,'bold'); col(badgeCor);
+      doc.text(nb===0?'Sem problemas':nb+' problema'+(nb!==1?'s':''),W-M,y+10,{align:'right'});
+      if(p.url){ setF(7,'normal'); col(MUT); doc.text(p.url.replace(/^https?:\/\//,'').slice(0,60),M+74,y+20); }
       y+=36;
-
-      // problemas
-      if(p.problemas.length){
-        p.problemas.forEach(prob=>{
-          const lI=doc.splitTextToSize(prob.item,W-2*M-36);
-          const lD=doc.splitTextToSize(prob.detalhe,W-2*M-36);
-          const ch=10+lI.length*12+lD.length*11+8;
-          need(ch+6);
-          fill([255,245,245]); doc.roundedRect(M,y,W-2*M,ch,4,4,'F');
-          draw(RED); doc.setLineWidth(2); doc.line(M,y,M,y+ch);
-          setF(9,'bold'); col(RED);
-          let iy=y+12;
-          lI.forEach(l=>{ doc.text(l,M+12,iy); iy+=12; });
-          setF(8.5,'normal'); col(INK2);
-          lD.forEach(l=>{ doc.text(l,M+12,iy); iy+=11; });
-          y+=ch+6;
-        });
-      }
-
-      // pontos ok (resumido)
+      p.problemas.forEach(prob=>{
+        const lI=doc.splitTextToSize(prob.item,W-2*M-30);
+        const lD=doc.splitTextToSize(prob.detalhe,W-2*M-30);
+        const ch=10+lI.length*12+lD.length*11+8;
+        need(ch+6);
+        fill([255,245,245]); doc.roundedRect(M,y,W-2*M,ch,4,4,'F');
+        draw(RED); doc.setLineWidth(2); doc.line(M,y,M,y+ch);
+        setF(9,'bold'); col(RED); let iy=y+12;
+        lI.forEach(l=>{ doc.text(l,M+12,iy); iy+=12; });
+        setF(8.5,'normal'); col(INK2);
+        lD.forEach(l=>{ doc.text(l,M+12,iy); iy+=11; });
+        y+=ch+6;
+      });
       if(p.ok.length){
         need(20);
-        setF(8,'bold'); col(GREEN); doc.text('✓ '+p.ok.join('  ·  ').slice(0,120),M+10,y+12);
-        y+=22;
+        const okTxt='✓ '+p.ok.join('  ·  ');
+        const lOk=doc.splitTextToSize(okTxt,W-2*M-20);
+        setF(8,'normal'); col(GREEN);
+        lOk.forEach(l=>{ need(14); doc.text(l,M+10,y+12); y+=12; });
+        y+=8;
       }
-      y+=10;
+      y+=8;
     });
-
-    // recomendação consolidada de SEO
-    const todosProblemas=seoProdutos.flatMap(p=>p.problemas.map(pb=>pb.item));
+    // padrão recorrente
     const freq={};
-    todosProblemas.forEach(it=>{ const k=it.split(' ')[0]; freq[k]=(freq[k]||0)+1; });
-    const recorrentes=Object.entries(freq).filter(([,v])=>v>=2).map(([k])=>k);
-    if(recorrentes.length){
+    seoProdutos.flatMap(p=>p.problemas.map(pb=>pb.item.split('(')[0].trim())).forEach(it=>{ freq[it]=(freq[it]||0)+1; });
+    const rec=Object.entries(freq).filter(([,v])=>v>=2).map(([k])=>k);
+    if(rec.length){
       need(60);
-      fill([237,245,251]); doc.roundedRect(M,y,W-2*M,52,6,6,'F');
+      fill(BG); doc.roundedRect(M,y,W-2*M,52,6,6,'F');
       draw(TEALD); doc.setLineWidth(2); doc.line(M,y,M,y+52);
-      setF(9,'bold'); col(TEALD); doc.text('Padrão identificado nos produtos',M+12,y+14);
+      setF(9,'bold'); col(TEALD); doc.text('Padrão identificado em mais de um produto',M+12,y+14);
       setF(9,'normal'); col(INK2);
-      const recTxt='Os seguintes problemas aparecem em mais de um produto analisado: '+recorrentes.join(', ')+'. Resolver na configuração do tema beneficia todos os produtos da loja de uma vez.';
+      const recTxt=rec.join(', ')+' — resolver na configuração do tema corrige todos de uma vez.';
       doc.splitTextToSize(recTxt,W-2*M-24).forEach((l,i)=>{ doc.text(l,M+12,y+28+i*12); });
       y+=60;
     }
-    y+=8;
   }
 
-  /* ── PRÓXIMOS PASSOS ─────────────────────────────────────────── */
+  /* ══ PRÓXIMOS PASSOS — nova página ═══════════════════════════════ */
   const passosTema=fracosSorted.filter(d=>!d.isConfig);
   const passosConfig=fracosSorted.filter(d=>d.isConfig);
+  // SEO nos próximos passos
+  const seoProbsRecorrentes=(()=>{
+    const freq={};
+    seoProdutos.flatMap(p=>p.problemas.map(pb=>pb.item.split('(')[0].trim())).forEach(it=>{ freq[it]=(freq[it]||0)+1; });
+    return Object.entries(freq).filter(([,v])=>v>=2).map(([k])=>({titulo:'SEO dos produtos: '+k}));
+  })();
+  const passosSeoProd=seoProdutos.length?[{titulo:'Revisar SEO dos produtos: '+seoProdutos.reduce((acc,p)=>acc+p.problemas.length,0)+' problemas encontrados em '+seoProdutos.length+' produto'+(seoProdutos.length>1?'s analisados':' analisado')}]:[];
 
   secao('Por onde começar','Próximos Passos Recomendados',
-    'Priorize as ações de maior impacto. Os itens marcados como configuração podem ser ativados sem troca de tema.');
+    'Priorize as ações de maior impacto. Itens marcados como configuração podem ser ativados sem troca de tema.');
 
   const renderPassos=(lista,icone,label,cor)=>{
     if(!lista.length) return;
-    need(28);
+    need(30);
     setF(8,'bold'); col(cor); doc.text(icone+' '+label.toUpperCase(),M,y); y+=16;
     lista.forEach((d,i)=>{
       const linhas=doc.splitTextToSize(d.titulo||'',W-2*M-36);
-      const cardH=10+linhas.length*13;
-      need(cardH+6);
-      fill(BGCARD); doc.roundedRect(M,y,W-2*M,cardH,4,4,'F');
+      const ch=10+linhas.length*13;
+      need(ch+6);
+      fill(BGCARD); doc.roundedRect(M,y,W-2*M,ch,4,4,'F');
       setF(8.5,'bold'); col(cor); doc.text(String(i+1)+'.',M+8,y+13);
       setF(8.5,'normal'); col(INK);
-      let py=y+13;
-      linhas.forEach(l=>{ doc.text(l,M+22,py); py+=13; });
-      y+=cardH+6;
+      let py=y+13; linhas.forEach(l=>{ doc.text(l,M+22,py); py+=13; });
+      y+=ch+6;
     });
-    y+=8;
+    y+=10;
   };
-
   renderPassos(passosTema,'▶','PRIORIDADE — Ações que transformam a experiência de compra',TEALD);
-  renderPassos(passosConfig,'⚙','CONFIGURAÇÃO — Recursos já disponíveis no tema, precisam ser ativados',GOLD);
+  renderPassos(passosConfig,'⚙','CONFIGURAÇÃO — Recursos já disponíveis, precisam ser ativados',GOLD);
+  if(passosSeoProd.length) renderPassos(passosSeoProd,'🔍','SEO DOS PRODUTOS — melhorias de ranqueamento identificadas',RED);
 
-  /* ── PÁGINA DE ENCERRAMENTO ───────────────────────────────────── */
-  doc.addPage();
-  fill(INK); doc.rect(0,0,W,H,'F');
-  fill(TEAL); doc.rect(0,0,W,6,'F');
-
-  // mensagem de fechamento
-  setF(11,'normal'); doc.setTextColor(180,200,220);
-  doc.text('Este relatório foi preparado com base na leitura',M,120);
-  doc.text('direta do código da loja em '+new Date().toLocaleDateString('pt-BR')+'.',M,138);
-
-  setF(17,'bold'); doc.setTextColor(255,255,255);
-  doc.text('Dúvidas ou quer aprofundar',M,190);
-  doc.text('algum ponto desta análise?',M,212);
-
-  fill(TEAL); doc.rect(M,230,60,3,'F');
-
-  setF(11,'normal'); doc.setTextColor(TEAL[0],TEAL[1],TEAL[2]);
-  doc.text('Entre em contato:',M,262);
-  setF(14,'bold'); doc.setTextColor(255,255,255);
-  doc.text(vendedor.nome||'',M,286);
-  setF(12,'normal'); doc.setTextColor(TEAL[0],TEAL[1],TEAL[2]);
-  if(vendedor.fone) doc.text(vendedor.fone,M,308);
-  if(vendedor.email) doc.text(vendedor.email,M,326);
-
-  // score resumido
-  fill([0,20,60]); doc.roundedRect(W-M-130,100,130,120,10,10,'F');
-  setF(8,'normal'); doc.setTextColor(TEAL[0],TEAL[1],TEAL[2]);
-  doc.text('Score de Experiência',W-M-65,120,{align:'center'});
-  setF(40,'bold');
-  const sc2=L.score.total;
-  doc.setTextColor(sc2>=70?TEAL[0]:sc2>=45?GOLD[0]:RED[0],
-                   sc2>=70?TEAL[1]:sc2>=45?GOLD[1]:RED[1],
-                   sc2>=70?TEAL[2]:sc2>=45?GOLD[2]:RED[2]);
-  doc.text(String(sc2),W-M-65,162,{align:'center'});
-  setF(9,'normal'); doc.setTextColor(180,200,220);
-  doc.text(L.score.rotulo,W-M-65,180,{align:'center'});
-  doc.text(nomeLoja.slice(0,20),W-M-65,200,{align:'center'});
-
-  // registrar número de páginas correto no rodapé de todas as páginas anteriores
+  /* ══ RODAPÉ FINAL — corrige paginação ════════════════════════════ */
+  footerFn();
   const totalPgs=doc.getNumberOfPages();
-  for(let p=2;p<totalPgs;p++){
+  for(let p=1;p<=totalPgs;p++){
     doc.setPage(p);
     setF(7,'normal'); col(MUT);
-    draw(LINE); doc.setLineWidth(0.4); doc.line(M,H-30,W-M,H-30);
-    doc.text('Diagnóstico de E-commerce · '+new Date().toLocaleDateString('pt-BR'),M,H-20);
+    draw(LINE); doc.setLineWidth(0.4); doc.line(M,H-32,W-M,H-32);
+    doc.text('Diagnóstico de E-commerce · '+(L.nomeLoja||L.host||''),M,H-20);
     if(vendedor.nome) doc.text(vendedor.nome,W/2,H-20,{align:'center'});
     doc.text('Página '+p+' de '+totalPgs,W-M,H-20,{align:'right'});
   }
