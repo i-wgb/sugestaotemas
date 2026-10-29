@@ -363,7 +363,7 @@
   </div>
 </div>
 
-<p class="ver-stamp">v2.9.1 · Raio-X + Tema Ideal · Loja de Temas Tray</p>
+<p class="ver-stamp">v2.9.3 · Raio-X + Tema Ideal · Loja de Temas Tray</p>
 <p class="foot">O diagnóstico é montado a partir do que está visível no código público da loja no momento da análise. A recomendação de tema cruza o segmento detectado com as lacunas encontradas; os temas e valores vêm do catálogo da Loja de Temas Tray e podem mudar — confira sempre a página e a demonstração vigentes antes de fechar. Os dados de mercado citados são de referências públicas (Baymard Institute, Opinion Box/Octadesk, ABComm) e servem de apoio ao discurso, não como promessa de resultado.</p>
 
 <script>
@@ -752,12 +752,38 @@ function acharTemaCatalogo(nome){
 }
 /* acha vários links de produto (para ler o frete/avaliações em mais de uma página) */
 function acharLinksProduto(html,origin,max){
-  max=max||3; const out=[]; const push=h=>{ const u=resolveUrl(h,origin); if(u&&!out.includes(u)) out.push(u); };
-  try{ const dom=new DOMParser().parseFromString(html,'text/html');
-    const hrefs=[...dom.querySelectorAll('a[href]')].map(a=>a.getAttribute('href')||'');
-    hrefs.filter(x=>/\/(produto|product)\//i.test(x)).forEach(push);
-    if(out.length<max) hrefs.filter(x=>/\/p\/[^/]+/i.test(x)||/-p\d+/i.test(x)).forEach(push);
-  }catch(e){ (html.match(/href=["']([^"']*\/(?:produto|product)\/[^"']+)["']/gi)||[]).forEach(m=>{ const h=(m.match(/href=["']([^"']+)["']/i)||[])[1]; if(h) push(h); }); }
+  max=max||3; const out=[]; const seen=new Set();
+  const push=h=>{
+    const u=resolveUrl(h,origin);
+    if(!u||seen.has(u)) return;
+    // evita duplicatas por slug (mesmo produto com parâmetros diferentes)
+    const slug=u.replace(/[?#].*/,'').replace(/\/+$/,'');
+    if(seen.has(slug)) return;
+    seen.add(u); seen.add(slug); out.push(u);
+  };
+  try{
+    const dom=new DOMParser().parseFromString(html,'text/html');
+    const links=[...dom.querySelectorAll('a[href]')];
+    // prioriza produtos de seções distintas — pega um de cada seção/shelf
+    const secoes=[...dom.querySelectorAll('section,div[class*="shelf"],div[class*="vitrine"],div[class*="grid"],div[class*="produtos"],ul[class*="produtos"]')];
+    secoes.forEach(sec=>{
+      if(out.length>=max) return;
+      const hrefs=[...sec.querySelectorAll('a[href]')].map(a=>a.getAttribute('href')||'');
+      const prodHref=hrefs.find(x=>/\/(produto|product)\//i.test(x)||/\/p\/[^/]+/i.test(x)||/-p\d+/i.test(x));
+      if(prodHref) push(prodHref);
+    });
+    // complementa com qualquer link de produto não repetido
+    if(out.length<max){
+      const hrefs=links.map(a=>a.getAttribute('href')||'');
+      hrefs.filter(x=>/\/(produto|product)\//i.test(x)).forEach(h=>{ if(out.length<max) push(h); });
+      if(out.length<max) hrefs.filter(x=>/\/p\/[^/]+/i.test(x)||/-p\d+/i.test(x)).forEach(h=>{ if(out.length<max) push(h); });
+    }
+  }catch(e){
+    (html.match(/href=["']([^"']*\/(?:produto|product)\/[^"']+)["']/gi)||[]).forEach(m=>{
+      if(out.length>=max) return;
+      const h=(m.match(/href=["']([^"']+)["']/i)||[])[1]; if(h) push(h);
+    });
+  }
   return out.slice(0,max);
 }
 /* ---------- 3. leitura das páginas ---------- */
@@ -1138,14 +1164,39 @@ function analisarLoja(html,url,extras){
      Camada 5: texto de título na página + links de produto próximos (lojista nomeou diferente) */
   const _DEST_RX=/mais.?vendidos|best.?seller|destaques?|em.?alta|novidades?|lançamentos?|lancamentos?|promo[çc][ãa]o|promos?|queridinhos?|curadoria|selecionados?|mais.?pedidos?|top.?produtos?|vitrine|showcase|featured|hot.?products?|trending|tendên|tendenc|recomendados?|popular/i;
 
-  // camada 1: classes CSS
-  const _destCls=dom.querySelector(
-    '[class*="mais-vendidos"],[class*="best-seller"],[class*="destaques"],[class*="em-alta"],'+
-    '[class*="featured"],[class*="hot-products"],[class*="queridinhos"],[class*="vitrine"],'+
-    '[class*="showcase"],[class*="trending"],[class*="novidades"],[class*="lancamentos"],'+
-    '[class*="lançamentos"],[class*="promocoes"],[class*="promoções"],[class*="recomendados"],'+
-    '[class*="mais-pedidos"],[class*="top-produtos"],[class*="curadoria"],[class*="selecionados"]'
-  );
+  // camada 1: classes CSS — seletores específicos de vitrine de produto
+  // "featured" e "showcase" isolados são muito genéricos (ex: login-links__featured)
+  // só usamos quando o elemento tem produtos reais dentro (imgs ou links de produto)
+  const _destClsEl=(()=>{
+    // seletores de alta especificidade (raramente usados em outro contexto)
+    const especificos=['[class*="mais-vendidos"]','[class*="best-seller"]','[class*="hot-products"]',
+      '[class*="queridinhos"]','[class*="mais-pedidos"]','[class*="top-produtos"]',
+      '[class*="vitrine-produtos"]','[class*="shelf-products"]','[class*="product-shelf"]',
+      '[class*="lancamentos-produtos"]','[class*="novidades-produtos"]'];
+    for(const s of especificos){ const el=dom.querySelector(s); if(el) return el; }
+    // seletores médios — só aceita se tiver imgs/links de produto dentro
+    const medios=['[class*="destaques"]','[class*="em-alta"]','[class*="vitrine"]',
+      '[class*="curadoria"]','[class*="lancamentos"]','[class*="lançamentos"]',
+      '[class*="novidades"]','[class*="promocoes"]','[class*="promoções"]',
+      '[class*="recomendados"]','[class*="selecionados"]','[class*="trending"]',
+      '[class*="mais-pedidos"]'];
+    for(const s of medios){
+      const el=dom.querySelector(s);
+      if(el && (el.querySelectorAll('img').length>=2 || el.querySelectorAll('a[href*="/produto"],a[href*="/product"]').length>=2)) return el;
+    }
+    // seletores genéricos — só aceita com produtos confirmados E fora de header/nav/footer
+    const genericos=['[class*="featured"]','[class*="showcase"]'];
+    for(const s of genericos){
+      const els=[...dom.querySelectorAll(s)];
+      const valido=els.find(el=>{
+        if(el.closest('header,nav,footer,[class*="login"],[class*="menu"],[class*="header"]')) return false;
+        return el.querySelectorAll('img').length>=3 || el.querySelectorAll('a[href*="/produto"],a[href*="/product"]').length>=3;
+      });
+      if(valido) return valido;
+    }
+    return null;
+  })();
+  const _destCls=_destClsEl;
   // camada 2: ids específicos
   const _destId=dom.querySelector(
     '[id*="mais-vendidos"],[id*="destaques"],[id*="vitrine"],[id*="featured"],'+
@@ -1175,10 +1226,8 @@ function analisarLoja(html,url,extras){
     });
   })();
 
-  const _destaquesReal=!!(_destCls||_destId||_destTitulo||_destData||_destFallback)&&
-    ((_destCls&&_destCls.querySelectorAll('a,img').length>1)||
-     (_destId&&_destId.querySelectorAll('a,img').length>1)||
-     !!_destTitulo||!!_destData||!!_destFallback);
+  // resultado: qualquer camada que encontrou elemento real de vitrine
+  const _destaquesReal=!!(_destCls||_destId||_destTitulo||_destData||_destFallback);
 
   /* CUPOM */
   const _cupomEl=!!dom.querySelector('input[name*="cupom"],input[name*="coupon"],input[placeholder*="cupom" i],[class*="cupom"],[class*="coupon"]');
@@ -1945,14 +1994,13 @@ async function recomendarTemas(L,onStep){
     // helper: detecta destaques/mais vendidos na home — sinônimos reais dos lojistas
     const _DEST_RX2=/mais.?vendidos|best.?seller|destaques?|em.?alta|novidades?|lançamentos?|lancamentos?|promo[çc][ãa]o|promos?|queridinhos?|curadoria|selecionados?|mais.?pedidos?|top.?produtos?|vitrine|showcase|featured|hot.?products?|trending|tendên|tendenc|recomendados?|popular/i;
     function temDestaques(d){
-      // classes e ids específicos
-      const elCls=d.querySelector(
-        '[class*="mais-vendidos"],[class*="best-seller"],[class*="destaques"],[class*="em-alta"],'+
-        '[class*="featured"],[class*="hot-products"],[class*="queridinhos"],[class*="vitrine"],'+
-        '[class*="showcase"],[class*="trending"],[class*="novidades"],[class*="lancamentos"],'+
-        '[class*="lançamentos"],[class*="promocoes"],[class*="recomendados"],[class*="curadoria"]'
-      );
-      if(elCls&&elCls.querySelectorAll('a,img').length>1) return true;
+      // classes específicas de vitrine — genéricos só com produtos confirmados e fora de nav/header
+      const especificosCls=['[class*="mais-vendidos"]','[class*="best-seller"]','[class*="hot-products"]','[class*="queridinhos"]','[class*="mais-pedidos"]','[class*="top-produtos"]','[class*="vitrine-produtos"]','[class*="product-shelf"]'];
+      for(const s of especificosCls){ const el=d.querySelector(s); if(el) return true; }
+      const mediosCls=['[class*="destaques"]','[class*="em-alta"]','[class*="vitrine"]','[class*="curadoria"]','[class*="lancamentos"]','[class*="lançamentos"]','[class*="novidades"]','[class*="promocoes"]','[class*="recomendados"]','[class*="selecionados"]','[class*="trending"]'];
+      for(const s of mediosCls){ const el=d.querySelector(s); if(el&&(el.querySelectorAll('img').length>=2||el.querySelectorAll('a[href*="/produto"],a[href*="/product"]').length>=2)) return true; }
+      const genericosCls=['[class*="featured"]','[class*="showcase"]'];
+      for(const s of genericosCls){ const els=[...d.querySelectorAll(s)]; if(els.find(el=>!el.closest('header,nav,footer,[class*="login"],[class*="menu"]')&&el.querySelectorAll('img').length>=3)) return true; }
       const elId=d.querySelector('[id*="mais-vendidos"],[id*="destaques"],[id*="vitrine"],[id*="featured"],[id*="novidades"],[id*="promocoes"]');
       if(elId&&elId.querySelectorAll('a,img').length>1) return true;
       // título de seção com sinônimo + produtos próximos
@@ -2397,6 +2445,7 @@ function analisarSeoProduto(html, url){
   const h1Els = [...dom.querySelectorAll('h1')];
   const h1Textos = h1Els.map(e => e.textContent.trim()).filter(Boolean);
   const h1Count = h1Els.length;
+  const nomeProduto = h1Textos[0] || titulo || url || 'Produto';
 
   // imagens sem alt
   const imgs = [...dom.querySelectorAll('img')];
@@ -2411,59 +2460,113 @@ function analisarSeoProduto(html, url){
     .map(s => { try { return JSON.parse(s.textContent); } catch(e){ return {}; } });
   const temSchemaProduct = schemas.some(s => (s['@type'] === 'Product') || (Array.isArray(s['@type']) && s['@type'].includes('Product')));
   const temBreadcrumb = schemas.some(s => s['@type'] === 'BreadcrumbList') || !!dom.querySelector('[class*="breadcrumb"],[itemtype*="BreadcrumbList"]');
-
-  // Open Graph completo para produto
   const ogOk = !!(meta('og:title') && meta('og:image') && meta('og:description'));
 
-  // URL amigável (sem parâmetros feios)
-  const urlAmigavel = url ? !/\?(id|produto_id|p)=\d/i.test(url) : true;
+  /* ── DESCRIÇÃO COMPLETA do produto ────────────────────────────────────────────
+     Temas Tray usam classes variadas: product-description, descricao-produto,
+     description, tab-description, produto-descricao, short-description etc.
+     Também extrai do schema.org Product quando disponível. */
+  const descSelEl = dom.querySelector(
+    '[class*="product-description"],[class*="descricao-produto"],[class*="descricao_produto"],'+
+    '[class*="produto-descricao"],[class*="tab-description"],[class*="description-tab"],'+
+    '[class*="produto-info"] [class*="descricao"],[class*="product-detail"] [class*="description"],'+
+    '[id*="descricao"],[id*="description"],[itemprop="description"]'
+  );
+  // fallback: schema.org
+  const schemaDesc = (schemas.find(s=>s.description)||{}).description||'';
+  const descTexto = descSelEl ? (descSelEl.textContent||'').trim() : schemaDesc.trim();
+  const descPalavras = descTexto ? descTexto.split(/\s+/).filter(Boolean).length : 0;
 
-  // nome do produto (para exibir no relatório)
-  const nomeProduto = h1Textos[0] || titulo || url || 'Produto';
+  /* avalia qualidade da descrição completa */
+  let descProblema=null, descOk=null;
+  if(!descTexto){
+    descProblema={item:'Descrição do produto ausente ou não detectada',
+      detalhe:'A descrição completa é o principal espaço para palavras-chave de cauda longa — produtos sem descrição ficam invisíveis no Google para buscas específicas e transmitem pouca confiança ao comprador.'};
+  } else if(descPalavras < 50){
+    descProblema={item:'Descrição muito curta ('+descPalavras+' palavras)',
+      detalhe:'Descrição com menos de 50 palavras tem pouco conteúdo para o Google indexar. O ideal é ao menos 150–300 palavras com material, uso, benefícios e diferenciais — sem exagerar para não parecer spam.'};
+  } else if(descPalavras < 100){
+    descOk='Descrição presente mas enxuta ('+descPalavras+' palavras) — considere detalhar material, medidas e uso para fortalecer o ranqueamento';
+  } else {
+    descOk='Descrição completa com '+descPalavras+' palavras — bom conteúdo para indexação';
+  }
+  // verifica se a descrição menciona o nome do produto (sinal de relevância)
+  const descMencionaProduto = descTexto && nomeProduto && descTexto.toLowerCase().includes(nomeProduto.toLowerCase().split(' ')[0]);
 
-  // problemas encontrados
+  /* ── DESCRIÇÃO SIMPLIFICADA (short description) ───────────────────────────────
+     É o texto curto que aparece na listagem e abaixo do título na página de produto.
+     No SEO contribui como snippet de prévia e melhora o CTR. */
+  const shortSelEl = dom.querySelector(
+    '[class*="short-description"],[class*="descricao-curta"],[class*="descricao_curta"],'+
+    '[class*="produto-resumo"],[class*="product-summary"],[class*="synopsis"],'+
+    '[class*="product-excerpt"],[itemprop="description"]:not([class*="product-description"])'
+  );
+  const shortTexto = shortSelEl && shortSelEl !== descSelEl ? (shortSelEl.textContent||'').trim() : '';
+  const shortPalavras = shortTexto ? shortTexto.split(/\s+/).filter(Boolean).length : 0;
+
+  let shortProblema=null, shortOkMsg=null;
+  if(!shortTexto){
+    shortProblema={item:'Descrição simplificada não encontrada',
+      detalhe:'A descrição curta aparece na listagem de produtos e é indexada pelo Google como prévia — contribui para o CTR na busca e orienta o comprador antes de abrir o produto.'};
+  } else if(shortPalavras < 10){
+    shortProblema={item:'Descrição simplificada muito curta ('+shortPalavras+' palavras)',
+      detalhe:'"'+shortTexto.slice(0,80)+'" — menos de 10 palavras não diz nada ao Google nem ao comprador. Ideal: 1 a 3 frases com benefício principal e diferencial.'};
+  } else {
+    shortOkMsg='Descrição simplificada presente ('+shortPalavras+' palavras) — contribui para SEO e CTR na listagem';
+  }
+
+  // problemas e ok
   const problemas = [];
   const ok = [];
 
   // título
-  if(!titulo)          problemas.push({item:'Título da página', detalhe:'Não encontrado — o Google usa o título como principal elemento de indexação.'});
-  else if(tituloLen < 30) problemas.push({item:'Título curto ('+tituloLen+' caracteres)', detalhe:'"'+titulo.slice(0,60)+'" — ideal entre 50 e 60 caracteres para máxima visibilidade no Google.'});
-  else if(tituloLen > 65) problemas.push({item:'Título longo ('+tituloLen+' caracteres)', detalhe:'"'+titulo.slice(0,60)+'…" — acima de 65 caracteres é cortado no Google; considere encurtar.'});
-  else ok.push('Título adequado ('+tituloLen+' caracteres)');
+  if(!titulo) problemas.push({item:'Título da página ausente', detalhe:'O Google usa o title como principal sinal de relevância — sem ele o produto não ranqueia para nenhum termo.'});
+  else if(tituloLen < 30) problemas.push({item:'Título curto ('+tituloLen+' caracteres)', detalhe:'"'+titulo.slice(0,60)+'" — ideal entre 50 e 65 caracteres para máxima visibilidade no Google; inclua marca e atributo principal.'});
+  else if(tituloLen > 68) problemas.push({item:'Título longo ('+tituloLen+' caracteres)', detalhe:'"'+titulo.slice(0,60)+'…" — acima de 68 caracteres é cortado no snippet do Google; concentre as palavras-chave no início.'});
+  else ok.push('Título adequado — '+tituloLen+' caracteres');
 
   // meta description
-  if(!descricao)       problemas.push({item:'Meta description ausente', detalhe:'Sem meta description, o Google escolhe um trecho aleatório — perda de controle do snippet de busca.'});
-  else if(descLen < 70) problemas.push({item:'Meta description curta ('+descLen+' caracteres)', detalhe:'"'+descricao.slice(0,80)+'…" — ideal entre 120 e 160 caracteres para cobrir palavras-chave e CTA.'});
-  else if(descLen > 165) problemas.push({item:'Meta description longa ('+descLen+' caracteres)', detalhe:'Acima de 160 caracteres é cortado no snippet — revise para o essencial.'});
-  else ok.push('Meta description adequada ('+descLen+' caracteres)');
+  if(!descricao) problemas.push({item:'Meta description ausente', detalhe:'Sem meta description o Google gera o snippet automaticamente de qualquer trecho da página — perda total de controle da mensagem de vendas na busca.'});
+  else if(descLen < 70) problemas.push({item:'Meta description curta ('+descLen+' caracteres)', detalhe:'"'+descricao.slice(0,80)+'…" — ideal entre 120 e 160 caracteres; inclua benefício, CTA e palavra-chave principal.'});
+  else if(descLen > 165) problemas.push({item:'Meta description longa ('+descLen+' caracteres)', detalhe:'Acima de 160 caracteres é cortado — revise e concentre o essencial.'});
+  else ok.push('Meta description adequada — '+descLen+' caracteres');
 
   // H1
-  if(h1Count === 0)    problemas.push({item:'H1 ausente', detalhe:'Sem H1 o Google não sabe qual é o título principal do produto — impacta diretamente o ranqueamento.'});
-  else if(h1Count > 1) problemas.push({item:h1Count+' H1s na página', detalhe:'Mais de um H1 dilui o sinal de relevância — mantenha apenas um H1 com o nome do produto.'});
-  else ok.push('H1 único presente: "'+h1Textos[0].slice(0,50)+'"');
+  if(h1Count === 0) problemas.push({item:'H1 ausente', detalhe:'Sem H1 o Google não identifica o título principal do produto — impacta diretamente o ranqueamento para o nome do item.'});
+  else if(h1Count > 1) problemas.push({item:h1Count+' H1s na mesma página', detalhe:'Mais de um H1 dilui o sinal de relevância — mantenha apenas um H1 com o nome completo do produto.'});
+  else ok.push('H1 único: "'+h1Textos[0].slice(0,50)+'"');
+
+  // descrição completa
+  if(descProblema) problemas.push(descProblema);
+  else if(descOk) ok.push(descOk);
+  if(descOk&&!descMencionaProduto&&descTexto) ok.push('Atenção: a descrição pode não mencionar o nome do produto — incluir o nome ajuda o Google a associar o conteúdo ao produto certo');
+
+  // descrição simplificada
+  if(shortProblema) problemas.push(shortProblema);
+  else if(shortOkMsg) ok.push(shortOkMsg);
 
   // imagens sem alt
   if(semAlt.length > 0 && totalImgs > 0){
-    problemas.push({item:semAlt.length+' de '+totalImgs+' imagens sem atributo alt', detalhe:'Alt ausente impede indexação das imagens no Google Imagens e prejudica acessibilidade — adicione alt descritivo com nome do produto.'});
-  } else if(totalImgs > 0) ok.push('Todas as '+totalImgs+' imagens têm atributo alt');
+    problemas.push({item:semAlt.length+' de '+totalImgs+' imagens sem alt', detalhe:'Alt ausente impede indexação no Google Imagens e prejudica acessibilidade — use o nome do produto como alt da imagem principal.'});
+  } else if(totalImgs > 0) ok.push('Todas as '+totalImgs+' imagens têm alt');
 
   // canonical
-  if(!canonical) problemas.push({item:'Tag canonical ausente', detalhe:'Sem canonical, variações de URL (parâmetros de filtro, paginação) podem causar conteúdo duplicado e diluir autoridade.'});
+  if(!canonical) problemas.push({item:'Tag canonical ausente', detalhe:'Sem canonical, variações de URL causam conteúdo duplicado — o Google pode indexar a versão errada e diluir a autoridade da página.'});
   else ok.push('Tag canonical presente');
 
   // schema Product
-  if(!temSchemaProduct) problemas.push({item:'Schema.org Product não encontrado', detalhe:'Sem dados estruturados de produto (nome, preço, disponibilidade, avaliações), o Google não exibe rich results (estrelas, preço) no resultado de busca.'});
-  else ok.push('Schema.org Product presente — habilita rich results no Google');
+  if(!temSchemaProduct) problemas.push({item:'Schema.org Product não encontrado', detalhe:'Sem dados estruturados, o Google não exibe estrelas de avaliação, preço e disponibilidade no resultado de busca — perda de visibilidade e CTR.'});
+  else ok.push('Schema.org Product presente — habilita rich results');
 
   // breadcrumb
-  if(!temBreadcrumb) problemas.push({item:'Breadcrumb não detectado', detalhe:'Breadcrumb ajuda o Google a entender a hierarquia da loja e aparece no resultado de busca como trilha de navegação.'});
+  if(!temBreadcrumb) problemas.push({item:'Breadcrumb não detectado', detalhe:'Breadcrumb aparece no snippet de busca como trilha de navegação e ajuda o Google a entender a hierarquia da loja.'});
   else ok.push('Breadcrumb presente');
 
   // Open Graph
-  if(!ogOk) problemas.push({item:'Open Graph incompleto', detalhe:'Compartilhamentos deste produto nas redes aparecem sem imagem e descrição formatadas — perda de cliques em campanhas e conteúdo orgânico.'});
+  if(!ogOk) problemas.push({item:'Open Graph incompleto', detalhe:'Compartilhamentos deste produto nas redes aparecem sem imagem e descrição formatadas — prejudica campanhas e conteúdo orgânico.'});
   else ok.push('Open Graph completo para produto');
 
-  return { nomeProduto, url: url||'', titulo, tituloLen, descLen, h1Count, h1Textos, totalImgs, semAlt: semAlt.length, canonical, temSchemaProduct, temBreadcrumb, ogOk, problemas, ok };
+  return { nomeProduto, url: url||'', titulo, tituloLen, descLen, descPalavras, shortPalavras, h1Count, h1Textos, totalImgs, semAlt: semAlt.length, canonical, temSchemaProduct, temBreadcrumb, ogOk, problemas, ok };
 }
 
 /* ---------- 8. fluxo e render ---------- */
@@ -2497,6 +2600,10 @@ async function run(){
       let urls=[]; if(extras.produtoUrl) urls.push(extras.produtoUrl);
       acharLinksProduto(html,org,4).forEach(u=>{ if(!urls.includes(u)) urls.push(u); });
       urls=urls.slice(0,3);
+      // se não encontrou 3 produtos distintos, tenta páginas adicionais de categoria
+      if(urls.length<3&&extras.categoriaHtml){
+        acharLinksProduto(extras.categoriaHtml,org,3).forEach(u=>{ if(!urls.includes(u)&&urls.length<3) urls.push(u); });
+      }
       if(urls.length){ lines[1]={s:'load',t:'Lendo '+urls.length+' página(s) de produto + categoria…'}; setStatus(lines);
         const htmls=await Promise.all(urls.map(u=>fetchText(u,13000).catch(()=>'')));
         const validos=htmls.filter(h=>h&&h.length>300);
